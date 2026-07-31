@@ -1,0 +1,5 @@
+Trained model artifacts (model.joblib, scaler.joblib, shap_explainer.joblib,
+label_encoder.joblib, metrics.json) are saved here by train_model.py.
+
+Not committed to git — see .gitignore. Generated locally by running the
+training pipeline against the dataset in the project root.

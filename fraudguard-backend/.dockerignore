@@ -1,0 +1,9 @@
+.venv
+__pycache__
+*.pyc
+# tests/ is intentionally NOT excluded (see Dockerfile's `COPY tests ./tests`)
+# — `docker compose exec backend pytest` (Step 10) needs it inside the image.
+logs
+.env
+.git
+.pytest_cache

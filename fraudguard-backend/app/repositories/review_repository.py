@@ -1,0 +1,61 @@
+"""
+Raw database access for ReviewQueue records. Eager-loads the related
+FraudPrediction -> Transaction chain and the assigned analyst, since every
+read path needs that denormalized summary data (see ReviewService._to_out).
+"""
+
+import uuid
+from typing import Optional
+
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, joinedload
+
+from app.models.fraud_prediction import FraudPrediction
+from app.models.review import ReviewQueue, ReviewStatus
+
+# Every read query needs the same eager-load chain — defined once, reused everywhere.
+_EAGER_LOAD = (
+    joinedload(ReviewQueue.fraud_prediction).joinedload(FraudPrediction.transaction),
+    joinedload(ReviewQueue.analyst),
+)
+
+
+class ReviewRepository:
+    def __init__(self, db: Session) -> None:
+        self.db = db
+
+    def create(self, fraud_prediction_id: uuid.UUID) -> ReviewQueue:
+        review = ReviewQueue(fraud_prediction_id=fraud_prediction_id, status=ReviewStatus.PENDING)
+        self.db.add(review)
+        self.db.commit()
+        self.db.refresh(review)
+        return self.get_by_id(review.id)  # re-fetch with eager-loaded relationships
+
+    def get_by_id(self, review_id: uuid.UUID) -> Optional[ReviewQueue]:
+        stmt = select(ReviewQueue).options(*_EAGER_LOAD).where(ReviewQueue.id == review_id)
+        return self.db.execute(stmt).unique().scalar_one_or_none()
+
+    def get_by_prediction_id(self, prediction_id: uuid.UUID) -> Optional[ReviewQueue]:
+        stmt = select(ReviewQueue).options(*_EAGER_LOAD).where(ReviewQueue.fraud_prediction_id == prediction_id)
+        return self.db.execute(stmt).unique().scalar_one_or_none()
+
+    def list_paginated(
+        self, page: int, page_size: int, status: Optional[ReviewStatus] = None
+    ) -> tuple[list[ReviewQueue], int]:
+        stmt = select(ReviewQueue).options(*_EAGER_LOAD)
+        if status is not None:
+            stmt = stmt.where(ReviewQueue.status == status)
+
+        count_stmt = select(func.count()).select_from(stmt.with_only_columns(ReviewQueue.id).subquery())
+        total = self.db.execute(count_stmt).scalar_one()
+
+        # Oldest first — a review queue is processed FIFO, not newest-first
+        # like the transaction list (which is browsed, not worked through).
+        stmt = stmt.order_by(ReviewQueue.created_at.asc()).offset((page - 1) * page_size).limit(page_size)
+        items = list(self.db.execute(stmt).unique().scalars().all())
+        return items, total
+
+    def save(self, review: ReviewQueue) -> ReviewQueue:
+        self.db.commit()
+        self.db.refresh(review)
+        return self.get_by_id(review.id)

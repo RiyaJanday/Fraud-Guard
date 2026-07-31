@@ -1,0 +1,64 @@
+# ============================================================================
+# FraudGuard — local one-command stack (Postgres + Redis + Backend API)
+#
+# Run from C:\Drishti\FraudGuard:
+#   docker compose up --build
+#
+# This replaces "install Postgres locally / install Redis locally" with
+# containers, so the demo machine only needs Docker Desktop installed.
+# The frontend is NOT containerized here — run it separately with
+# `npm run dev` inside fraudguard-frontend/ (see LOCAL_RUN.md) so you keep
+# Vite's hot-reload during any last-minute tweaks before the demo.
+# ============================================================================
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: fraudguard
+    ports:
+      - "5432:5432"
+    volumes:
+      - fraudguard_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  backend:
+    build: ./fraudguard-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mounted (not COPY'd into the image) so the ~150MB dataset never
+      # bloats the built image or gets baked into a deployed container —
+      # it's only needed locally, to build/rebuild the drift-detection
+      # reference distribution (see app/ml_engine/drift_detector.py, Step 7).
+      # Read-only: the backend only ever reads this file, never writes it.
+      - ./creditcard.csv:/creditcard.csv:ro
+    environment:
+      ENVIRONMENT: development
+      DEBUG: "True"
+      SECRET_KEY: ${SECRET_KEY:-dev_secret_change_me_64_hex_chars_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}
+      JWT_REFRESH_SECRET_KEY: ${JWT_REFRESH_SECRET_KEY:-dev_refresh_secret_change_me_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb}
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/fraudguard
+      REDIS_URL: redis://redis:6379/0
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+volumes:
+  fraudguard_pgdata:
