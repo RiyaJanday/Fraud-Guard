@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import ModelNotLoadedException, NotFoundException
 from app.core.logging import logger
+from app.core.websocket import manager as ws_manager
 from app.ml_engine.predictor import get_predictor
 from app.models.fraud_log import LogStatus, PipelineStage
 from app.models.fraud_prediction import Decision, FraudPrediction
@@ -33,6 +34,7 @@ from app.models.transaction import Transaction
 from app.repositories.fraud_log_repository import FraudLogRepository
 from app.repositories.fraud_prediction_repository import FraudPredictionRepository
 from app.repositories.model_registry_repository import ModelRegistryRepository
+from app.repositories.review_repository import ReviewRepository
 from app.repositories.transaction_repository import TransactionRepository
 from app.schemas.transaction import (
     FraudLogOut,
@@ -41,6 +43,7 @@ from app.schemas.transaction import (
     TransactionDetailOut,
     TransactionListResponse,
     TransactionOut,
+    TransactionReviewSummary,
 )
 from app.services.notification_service import NotificationService
 from app.services.review_service import ReviewService
@@ -53,6 +56,7 @@ class TransactionService:
         self.predictions = FraudPredictionRepository(db)
         self.logs = FraudLogRepository(db)
         self.model_registry = ModelRegistryRepository(db)
+        self.review_repo = ReviewRepository(db)
         self.reviews = ReviewService(db)
         self.notifications = NotificationService(db)
 
@@ -160,6 +164,28 @@ class TransactionService:
         )
 
         transaction.prediction = prediction
+
+        # Live Monitoring feed: broadcasts EVERY scored transaction (unlike
+        # NotificationService above, which only fires for BLOCKED/MFA_REQUIRED)
+        # over the same WebSocket channel, under a distinct "transaction_scored"
+        # event so the notification bell and the live feed can share one
+        # connection without stepping on each other — the frontend simply
+        # ignores events it doesn't care about. This is what actually powers
+        # the Live Monitoring page's real-time feed.
+        ws_manager.broadcast_sync({
+            "event": "transaction_scored",
+            "transaction": {
+                "id": str(transaction.id),
+                "merchant": transaction.merchant,
+                "amount": transaction.amount,
+                "currency": transaction.currency,
+                "risk_score": prediction.risk_score,
+                "decision": prediction.decision.value,
+                "is_fraud": prediction.is_fraud,
+                "created_at": transaction.created_at.isoformat(),
+            },
+        })
+
         return transaction
 
     # ------------------------------------------------------------------ #
@@ -207,6 +233,24 @@ class TransactionService:
     def to_detail_out(self, transaction: Transaction) -> TransactionDetailOut:
         logs = self.logs.list_by_transaction(transaction.id)
         prediction_out = FraudPredictionOut.model_validate(transaction.prediction) if transaction.prediction else None
+
+        # Only BLOCKED transactions ever get a review row (see
+        # ReviewService.create_review_if_needed) — for everything else this
+        # stays None, which the frontend uses to decide whether to even show
+        # the Confirm/Escalate actions at all.
+        review_out = None
+        if transaction.prediction:
+            review = self.review_repo.get_by_prediction_id(transaction.prediction.id)
+            if review:
+                review_out = TransactionReviewSummary(
+                    id=review.id,
+                    status=review.status,
+                    analyst_decision=review.analyst_decision,
+                    assigned_analyst_name=review.analyst.full_name if review.analyst else None,
+                    notes=review.notes,
+                    resolved_at=review.resolved_at,
+                )
+
         return TransactionDetailOut(
             id=transaction.id,
             time_feature=transaction.time_feature,
@@ -222,4 +266,5 @@ class TransactionService:
             created_at=transaction.created_at,
             prediction=prediction_out,
             decision_history=[FraudLogOut.model_validate(log) for log in logs],
+            review=review_out,
         )

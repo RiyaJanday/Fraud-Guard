@@ -187,3 +187,26 @@ class AnalyticsRepository:
             .limit(limit)
         )
         return list(self.db.execute(stmt).scalars().all())
+
+    def currency_breakdown(self) -> list[dict]:
+        """
+        Real counts per currency — added to replace the frontend's old
+        "Fraud by Geography" mock panel, which had no honest backend
+        equivalent (Transaction.location is optional and rarely populated
+        in real submissions, unlike currency, which every transaction has).
+        """
+        stmt = (
+            select(
+                Transaction.currency,
+                func.count().label("total"),
+                func.count(case((FraudPrediction.decision != Decision.APPROVE, 1))).label("flagged"),
+            )
+            .select_from(Transaction)
+            .outerjoin(Transaction.prediction)
+            .group_by(Transaction.currency)
+            .order_by(func.count().desc())
+        )
+        return [
+            {"currency": row.currency, "total_count": row.total, "flagged_count": row.flagged}
+            for row in self.db.execute(stmt).all()
+        ]

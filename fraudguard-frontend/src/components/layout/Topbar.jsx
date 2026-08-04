@@ -1,17 +1,28 @@
-import { useState } from 'react'
-import { Menu, Search, Bell, ChevronDown, LogOut, Settings, UserCircle } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Menu, Search, Bell, ChevronDown, LogOut, Settings, UserCircle, CheckCheck } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../context/AuthContext'
-import { NOTIFICATIONS } from '../../data/mockData'
-
-const TYPE_DOT = { success: 'bg-success', danger: 'bg-danger', info: 'bg-accent' }
+import { useNotifications, typeMeta } from '../../context/NotificationsContext'
+import { timeAgo } from '../../lib/transform'
 
 export default function Topbar({ onMenuClick }) {
   const [notifOpen, setNotifOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const { user, logout } = useAuth()
+  const { notifications, unreadCount, connected, markRead, markAllRead } = useNotifications()
   const navigate = useNavigate()
+  const notifRef = useRef(null)
+  const profileRef = useRef(null)
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false)
+      if (profileRef.current && !profileRef.current.contains(e.target)) setProfileOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-white/10 bg-bg/70 px-4 backdrop-blur-xl sm:px-6">
@@ -29,21 +40,28 @@ export default function Topbar({ onMenuClick }) {
       </div>
 
       <div className="ml-auto flex items-center gap-2 sm:gap-3">
-        <div className="hidden items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-3 py-1.5 text-xs font-medium text-success sm:flex">
+        <div
+          title={connected ? 'Live notifications connected' : 'Reconnecting…'}
+          className={`hidden items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium sm:flex ${
+            connected ? 'border-success/30 bg-success/10 text-success' : 'border-warning/30 bg-warning/10 text-warning'
+          }`}
+        >
           <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
-            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-success" />
+            {connected && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />}
+            <span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${connected ? 'bg-success' : 'bg-warning'}`} />
           </span>
-          System Live
+          {connected ? 'System Live' : 'Reconnecting'}
         </div>
 
-        <div className="relative">
+        <div className="relative" ref={notifRef}>
           <button
             onClick={() => { setNotifOpen((v) => !v); setProfileOpen(false) }}
             className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-white/60 transition hover:text-white hover:bg-white/[0.08]"
           >
             <Bell size={18} />
-            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-danger ring-2 ring-bg" />
+            {unreadCount > 0 && (
+              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-danger ring-2 ring-bg" />
+            )}
           </button>
           <AnimatePresence>
             {notifOpen && (
@@ -54,27 +72,43 @@ export default function Topbar({ onMenuClick }) {
                 transition={{ duration: 0.15 }}
                 className="glass-card absolute right-0 mt-2 w-80 overflow-hidden p-0"
               >
-                <div className="border-b border-white/10 px-4 py-3">
+                <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
                   <p className="text-sm font-semibold text-white">Notifications</p>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllRead}
+                      className="flex items-center gap-1 text-[11px] text-white/40 hover:text-white"
+                    >
+                      <CheckCheck size={12} /> Mark all read
+                    </button>
+                  )}
                 </div>
                 <div className="max-h-80 overflow-y-auto">
-                  {NOTIFICATIONS.map((n) => (
-                    <div key={n.id} className="flex gap-3 border-b border-white/5 px-4 py-3 last:border-0 hover:bg-white/[0.03]">
-                      <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${TYPE_DOT[n.type]}`} />
-                      <div>
-                        <p className="text-sm font-medium text-white/90">{n.title}</p>
-                        <p className="mt-0.5 text-xs text-white/40">{n.desc}</p>
-                        <p className="mt-1 text-[11px] text-white/25">{n.time}</p>
-                      </div>
-                    </div>
-                  ))}
+                  {notifications.length === 0 ? (
+                    <p className="px-4 py-8 text-center text-xs text-white/30">No notifications yet.</p>
+                  ) : (
+                    notifications.map((n) => (
+                      <button
+                        key={n.id}
+                        onClick={() => !n.is_read && markRead(n.id)}
+                        className={`flex w-full gap-3 border-b border-white/5 px-4 py-3 text-left last:border-0 hover:bg-white/[0.03] ${!n.is_read ? 'bg-white/[0.02]' : ''}`}
+                      >
+                        <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${typeMeta(n.type).dotClass}`} />
+                        <div>
+                          <p className={`text-sm font-medium ${n.is_read ? 'text-white/60' : 'text-white/90'}`}>{n.title}</p>
+                          <p className="mt-0.5 text-xs text-white/40">{n.message}</p>
+                          <p className="mt-1 text-[11px] text-white/25">{timeAgo(n.created_at)}</p>
+                        </div>
+                      </button>
+                    ))
+                  )}
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
 
-        <div className="relative">
+        <div className="relative" ref={profileRef}>
           <button
             onClick={() => { setProfileOpen((v) => !v); setNotifOpen(false) }}
             className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] py-1.5 pl-1.5 pr-2.5 hover:bg-white/[0.08]"

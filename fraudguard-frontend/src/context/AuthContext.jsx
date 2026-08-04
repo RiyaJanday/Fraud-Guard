@@ -90,8 +90,18 @@ export function AuthProvider({ children }) {
     setUser(null)
   }, [])
 
+  // Merges partial fields (e.g. after a profile save) into the cached user
+  // so Topbar/Profile reflect the change immediately without a full re-fetch.
+  const updateUser = useCallback((partial) => {
+    setUser((prev) => {
+      const next = { ...prev, ...partial }
+      localStorage.setItem('fraudguard_user', JSON.stringify(next))
+      return next
+    })
+  }, [])
+
   return (
-    <AuthContext.Provider value={{ user, loading, initializing, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, initializing, login, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   )

@@ -1,10 +1,13 @@
+import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import toast from 'react-hot-toast'
 import {
   X, MapPin, CreditCard, Smartphone, User, Clock,
-  ShieldAlert, ShieldCheck, ShieldQuestion, Sparkles,
+  ShieldAlert, ShieldCheck, ShieldQuestion, Sparkles, Loader2, CheckCircle2,
 } from 'lucide-react'
 import StatusBadge from './StatusBadge'
 import RiskGauge from '../ui/RiskGauge'
+import { fraudApi } from '../../lib/api'
 import { formatCurrency, formatDateTime, riskLevel } from '../../lib/utils'
 
 function suggestedAction(status) {
@@ -35,6 +38,45 @@ function explanation(txn) {
 }
 
 export default function TransactionDrawer({ transaction, onClose }) {
+  // Local copy of review state so a Claim/Resolve action can update the UI
+  // immediately without waiting on the parent to refetch the whole
+  // transaction — re-synced whenever a different transaction is opened.
+  const [review, setReview] = useState(transaction?.review || null)
+  const [claiming, setClaiming] = useState(false)
+  const [resolving, setResolving] = useState(false)
+
+  useEffect(() => {
+    setReview(transaction?.review || null)
+  }, [transaction?.id])
+
+  async function handleEscalate() {
+    if (!review) return
+    setClaiming(true)
+    try {
+      const { data } = await fraudApi.claimReview(review.id)
+      setReview((r) => ({ ...r, status: data.status, assignedAnalystName: r.assignedAnalystName }))
+      toast.success('Escalated — claimed for active review')
+    } catch (err) {
+      toast.error(err?.response?.data?.detail?.message || 'Could not escalate this review')
+    } finally {
+      setClaiming(false)
+    }
+  }
+
+  async function handleConfirm() {
+    if (!review) return
+    setResolving(true)
+    try {
+      const { data } = await fraudApi.resolveReview(review.id, { decision: 'fraud' })
+      setReview((r) => ({ ...r, status: data.status, analystDecision: data.analyst_decision, resolvedAt: data.resolved_at }))
+      toast.success('Decision confirmed — recorded as fraud')
+    } catch (err) {
+      toast.error(err?.response?.data?.detail?.message || 'Could not confirm this decision')
+    } finally {
+      setResolving(false)
+    }
+  }
+
   return (
     <AnimatePresence>
       {transaction && (
@@ -163,8 +205,37 @@ export default function TransactionDrawer({ transaction, onClose }) {
               </div>
 
               <div className="flex gap-3 pb-4">
-                <button className="btn-ghost flex-1">Escalate to Analyst</button>
-                <button className="btn-primary flex-1">Confirm Decision</button>
+                {!review ? (
+                  // Only BLOCKED transactions ever enter the review queue
+                  // (see ReviewService.create_review_if_needed) — there's
+                  // nothing real to confirm/escalate for an approved or
+                  // MFA transaction, so the actions don't render at all
+                  // rather than being fake buttons that do nothing.
+                  <p className="w-full text-center text-xs text-white/30">
+                    This transaction wasn't routed for manual review.
+                  </p>
+                ) : review.status === 'resolved' ? (
+                  <div className="flex w-full items-center justify-center gap-2 rounded-lg border border-success/30 bg-success/10 px-4 py-2.5 text-sm text-success">
+                    <CheckCircle2 size={16} />
+                    Resolved as {review.analystDecision === 'fraud' ? 'fraud' : 'legitimate'}
+                    {review.resolvedAt ? ` · ${formatDateTime(review.resolvedAt)}` : ''}
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      onClick={handleEscalate}
+                      disabled={claiming || review.status === 'in_review'}
+                      className="btn-ghost flex-1 disabled:opacity-50"
+                    >
+                      {claiming ? <Loader2 size={15} className="animate-spin" /> : null}
+                      {review.status === 'in_review' ? 'Claimed for review' : 'Escalate to Analyst'}
+                    </button>
+                    <button onClick={handleConfirm} disabled={resolving} className="btn-primary flex-1 disabled:opacity-50">
+                      {resolving ? <Loader2 size={15} className="animate-spin" /> : null}
+                      Confirm Decision
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>

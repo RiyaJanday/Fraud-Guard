@@ -6,6 +6,8 @@ delegates all logic to AuthService. Consistent with clean architecture:
 API layer -> Service layer -> Repository layer -> Database.
 """
 
+from typing import List
+
 from fastapi import APIRouter, Depends, status
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -15,17 +17,24 @@ from app.core.security import bearer_scheme, get_current_user
 from app.database.session import get_db
 from app.models.user import User
 from app.schemas.user import (
+    ChangePasswordRequest,
     ForgotPasswordRequest,
     ForgotPasswordResponse,
     MessageResponse,
+    NotificationPreferencesOut,
+    NotificationPreferencesUpdateRequest,
+    ProfileActivityItemOut,
+    ProfileStatsOut,
     RefreshTokenRequest,
     ResetPasswordRequest,
     TokenResponse,
     UserLogin,
     UserOut,
     UserRegister,
+    UserUpdateRequest,
 )
 from app.services.auth_service import AuthService
+from app.services.review_service import ReviewService
 
 router = APIRouter()
 
@@ -96,6 +105,85 @@ def logout(
 )
 def get_me(current_user: User = Depends(get_current_user)) -> User:
     return current_user
+
+
+@router.patch(
+    "/me",
+    response_model=UserOut,
+    summary="Update the current user's profile",
+    description="Currently just full_name — email is intentionally read-only (see UserUpdateRequest).",
+)
+def update_me(
+    payload: UserUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> User:
+    return AuthService(db).update_profile(current_user, payload.full_name)
+
+
+@router.post(
+    "/change-password",
+    response_model=MessageResponse,
+    summary="Change the current user's password (requires the current password)",
+)
+def change_password(
+    payload: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MessageResponse:
+    AuthService(db).change_password(current_user, payload.current_password, payload.new_password)
+    return MessageResponse(message="Password changed successfully.")
+
+
+@router.get(
+    "/notification-preferences",
+    response_model=NotificationPreferencesOut,
+    summary="Get the current user's notification preferences",
+)
+def get_notification_preferences(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> NotificationPreferencesOut:
+    return NotificationPreferencesOut(preferences=AuthService(db).get_notification_preferences(current_user))
+
+
+@router.patch(
+    "/notification-preferences",
+    response_model=NotificationPreferencesOut,
+    summary="Update the current user's notification preferences",
+    description="Merges the given keys into existing preferences rather than replacing the whole object.",
+)
+def update_notification_preferences(
+    payload: NotificationPreferencesUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> NotificationPreferencesOut:
+    merged = AuthService(db).update_notification_preferences(current_user, payload.preferences)
+    return NotificationPreferencesOut(preferences=merged)
+
+
+@router.get(
+    "/me/stats",
+    response_model=ProfileStatsOut,
+    summary="Real review-queue stats for the current user (Profile page)",
+)
+def get_my_stats(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ProfileStatsOut:
+    return ReviewService(db).get_profile_stats(current_user.id)
+
+
+@router.get(
+    "/me/activity",
+    response_model=List[ProfileActivityItemOut],
+    summary="Recent resolved-review activity for the current user (Profile page)",
+)
+def get_my_activity(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> List[ProfileActivityItemOut]:
+    return ReviewService(db).get_recent_activity(current_user.id)
 
 
 @router.post(

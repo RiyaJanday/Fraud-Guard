@@ -73,6 +73,16 @@ export function mapTransactionDetail(t) {
     shap: shap.length ? shap : [{ key: 'no_data', label: 'No SHAP data available', impact: 0 }],
     history: history.length ? history : [{ step: 'Transaction recorded', time: '', actor: 'FraudGuard' }],
     explanationText: pred?.explanation,
+    review: t.review
+      ? {
+          id: t.review.id,
+          status: t.review.status,
+          analystDecision: t.review.analyst_decision,
+          assignedAnalystName: t.review.assigned_analyst_name,
+          notes: t.review.notes,
+          resolvedAt: t.review.resolved_at,
+        }
+      : null,
   }
 }
 
@@ -116,4 +126,66 @@ export function mapAlerts(alerts) {
     time: timeAgo(a.time),
     severity: a.severity,
   }))
+}
+
+/** ExplainabilityOut -> mock-shaped objects for the Explainability page */
+export function mapExplainability(e) {
+  const model = e.model
+  const performance = model
+    ? {
+        labels: ['Precision', 'Recall', 'F1 Score', 'ROC-AUC', 'PR-AUC', 'Accuracy'],
+        values: [
+          Math.round((model.precision || 0) * 100),
+          Math.round((model.recall || 0) * 100),
+          Math.round((model.f1_score || 0) * 100),
+          Math.round((model.roc_auc || 0) * 100),
+          Math.round((model.pr_auc || 0) * 100),
+          Math.round((model.accuracy || 0) * 100),
+        ],
+      }
+    : { labels: ['Precision', 'Recall', 'F1 Score', 'ROC-AUC', 'PR-AUC', 'Accuracy'], values: [0, 0, 0, 0, 0, 0] }
+
+  return {
+    model,
+    performance,
+    sampleSize: e.sample_size,
+    globalImportance: e.global_feature_importance.map((f) => ({
+      key: f.feature,
+      label: f.label,
+      importance: f.avg_impact,
+      sampleCount: f.sample_count,
+    })),
+    recentExplanations: e.recent_explanations.map((r) => ({
+      id: r.transaction_id,
+      merchant: r.merchant || '—',
+      amount: r.amount,
+      currency: r.currency,
+      risk: Math.round(r.risk_score),
+      decision: r.decision,
+      explanationText: r.explanation,
+      shap: r.top_shap_features.map((f) => ({ key: f.feature, label: f.label, impact: f.impact })),
+      createdAt: r.created_at,
+    })),
+  }
+}
+export function mapAnalytics(a) {
+  return {
+    volume: a.volume,
+    distribution: a.fraud_distribution,
+    trend: a.risk_trend,
+    heatmap: a.heatmap,
+    heatmapHours: a.heatmap_hours,
+    topMerchants: a.top_merchants_by_risk.map((m) => ({
+      name: m.merchant,
+      flagged: m.flagged_count,
+      total: m.total_count,
+      flagRate: m.total_count ? Math.round((m.flagged_count / m.total_count) * 100) : 0,
+    })),
+    currencyBreakdown: a.currency_breakdown.map((c) => ({
+      currency: c.currency,
+      total: c.total_count,
+      flagged: c.flagged_count,
+      share: 0, // computed by the caller once the full list's total is known
+    })),
+  }
 }

@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './context/AuthContext'
+import { NotificationsProvider } from './context/NotificationsContext'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import DashboardLayout from './components/layout/DashboardLayout'
 
@@ -19,6 +20,7 @@ import Profile from './pages/Profile'
 export default function App() {
   return (
     <AuthProvider>
+      <NotificationsProvider>
       <BrowserRouter>
         <Toaster
           position="top-right"
@@ -59,6 +61,7 @@ export default function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+      </NotificationsProvider>
     </AuthProvider>
   )
 }

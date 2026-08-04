@@ -97,17 +97,39 @@ api.interceptors.response.use(
   }
 )
 
+// Backend error responses are shaped { success: false, error: { code, message, details } },
+// NOT FastAPI's default { detail }. Every catch block across the app should
+// use this instead of reaching into err.response.data.detail directly.
+export function getApiErrorMessage(err, fallback = 'Something went wrong. Please try again.') {
+  const message = err?.response?.data?.error?.message
+  return typeof message === 'string' && message.length > 0 ? message : fallback
+}
+
 export const fraudApi = {
   // --- Auth ---------------------------------------------------------
   login: (payload) => api.post('/auth/login', payload),
   register: (payload) => api.post('/auth/register', payload),
   me: () => api.get('/auth/me'),
+  updateProfile: (payload) => api.patch('/auth/me', payload),
+  changePassword: (payload) => api.post('/auth/change-password', payload),
+  getNotificationPreferences: () => api.get('/auth/notification-preferences'),
+  updateNotificationPreferences: (preferences) => api.patch('/auth/notification-preferences', { preferences }),
+  getMyStats: () => api.get('/auth/me/stats'),
+  getMyActivity: () => api.get('/auth/me/activity'),
   logout: (refresh_token) => api.post('/auth/logout', refresh_token ? { refresh_token } : {}),
+
+  // --- User management (admin) -------------------------------------------
+  listUsers: (params) => api.get('/users', { params }),
+  createUser: (payload) => api.post('/users', payload),
+  deactivateUser: (id) => api.patch(`/users/${id}/deactivate`),
+  activateUser: (id) => api.patch(`/users/${id}/activate`),
 
   // --- Dashboard ------------------------------------------------------
   getDashboardStats: () => api.get('/dashboard/stats'),
   getDashboardCharts: () => api.get('/dashboard/charts'),
   getDashboardAlerts: (limit = 5) => api.get('/dashboard/alerts', { params: { limit } }),
+  getAnalytics: () => api.get('/analytics'),
+  getExplainability: () => api.get('/explainability'),
 
   // --- Transactions ---------------------------------------------------
   getTransactions: (params) => api.get('/transactions', { params }),
@@ -120,6 +142,26 @@ export const fraudApi = {
   // responseType: 'blob' is essential here — these responses are binary
   // (PDF) / raw text-as-file (CSV), not JSON, so Axios must not try to
   // JSON.parse() the body.
-  exportSummaryPdf: () => api.get('/reports/summary.pdf', { responseType: 'blob' }),
+  exportSummaryPdf: (params) => api.get('/reports/summary.pdf', { params, responseType: 'blob' }),
   exportTransactionsCsv: (params) => api.get('/reports/transactions.csv', { params, responseType: 'blob' }),
+
+  // --- Manual review queue ----------------------------------------------
+  claimReview: (reviewId) => api.post(`/review-queue/${reviewId}/claim`),
+  resolveReview: (reviewId, payload) => api.post(`/review-queue/${reviewId}/resolve`, payload),
+
+  // --- Notifications ------------------------------------------------------
+  listNotifications: (params) => api.get('/notifications', { params }),
+  markNotificationRead: (id) => api.patch(`/notifications/${id}/read`),
+  markAllNotificationsRead: () => api.patch('/notifications/read-all'),
+}
+
+// Derives the WebSocket URL for the live notifications channel from the
+// same VITE_API_BASE_URL used for regular REST calls, so there's only one
+// place (the .env file) that needs to know the backend's real address —
+// http://… becomes ws://…, https://… becomes wss://… (required: browsers
+// refuse a plain ws:// connection from an https:// page).
+export function getNotificationsWebSocketUrl(token) {
+  const httpBase = api.defaults.baseURL
+  const wsBase = httpBase.replace(/^http/, 'ws')
+  return `${wsBase}/ws/notifications?token=${encodeURIComponent(token)}`
 }

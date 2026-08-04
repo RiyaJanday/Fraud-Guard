@@ -100,3 +100,91 @@ class ForgotPasswordResponse(BaseModel):
 
     message: str = "If an account with that email exists, a password reset link has been sent."
     dev_reset_token: Optional[str] = None
+
+
+class UserUpdateRequest(BaseModel):
+    """PATCH /auth/me — deliberately just full_name. Email is intentionally
+    NOT editable here: it's the login identifier and changing it without any
+    re-verification flow would be a real security footgun, not just a UX nicety
+    to skip."""
+
+    full_name: str = Field(..., min_length=2, max_length=255)
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+    @field_validator("new_password")
+    @classmethod
+    def password_strength(cls, value: str) -> str:
+        if not any(c.isdigit() for c in value):
+            raise ValueError("Password must contain at least one digit.")
+        if not any(c.isalpha() for c in value):
+            raise ValueError("Password must contain at least one letter.")
+        return value
+
+
+class NotificationPreferencesOut(BaseModel):
+    preferences: dict
+
+
+class NotificationPreferencesUpdateRequest(BaseModel):
+    preferences: dict
+
+
+class ProfileStatsOut(BaseModel):
+    """
+    Real, computed-from-the-review-queue stats — deliberately NOT an
+    "accuracy rate", which would need ground truth this system doesn't
+    independently have. Confirmed/marked-legitimate counts and average
+    response time are honestly computable from ReviewQueue instead.
+    """
+
+    cases_reviewed: int
+    fraud_confirmed: int
+    marked_legitimate: int
+    avg_response_minutes: Optional[float] = None
+
+
+class ProfileActivityItemOut(BaseModel):
+    transaction_id: uuid.UUID
+    merchant: Optional[str] = None
+    analyst_decision: Optional[str] = None
+    resolved_at: datetime
+
+
+class UserListItemOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    email: EmailStr
+    full_name: str
+    role: UserRole
+    is_active: bool
+    last_login_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class UserListResponse(BaseModel):
+    items: list[UserListItemOut]
+    total: int
+
+
+class AdminCreateUserRequest(BaseModel):
+    email: EmailStr
+    full_name: str = Field(..., min_length=2, max_length=255)
+    role: UserRole = UserRole.ANALYST
+
+
+class AdminCreateUserResponse(BaseModel):
+    """
+    Includes the generated temporary password exactly ONCE, in this response
+    only — it is never retrievable again afterward (only its bcrypt hash is
+    stored). No email provider exists to deliver it any other way (same
+    limitation as AuthService.forgot_password); the admin is expected to
+    relay it to the new user out-of-band.
+    """
+
+    user: UserListItemOut
+    temporary_password: str

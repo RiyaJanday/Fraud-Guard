@@ -59,3 +59,60 @@ class ReviewRepository:
         self.db.commit()
         self.db.refresh(review)
         return self.get_by_id(review.id)
+
+    def get_stats_for_analyst(self, analyst_id: uuid.UUID) -> dict:
+        """
+        Real per-analyst metrics for the Profile page — counts and average
+        response time, computed directly from resolved reviews assigned to
+        this analyst. No fabricated "accuracy" figure: that would need
+        ground truth this system doesn't independently have.
+        """
+        from app.models.review import AnalystDecision  # local import avoids a circular import at module load
+
+        base = select(ReviewQueue).where(
+            ReviewQueue.assigned_analyst_id == analyst_id, ReviewQueue.status == ReviewStatus.RESOLVED
+        )
+        cases_reviewed = self.db.execute(
+            select(func.count()).select_from(base.with_only_columns(ReviewQueue.id).subquery())
+        ).scalar_one()
+
+        fraud_confirmed = self.db.execute(
+            select(func.count()).select_from(
+                base.where(ReviewQueue.analyst_decision == AnalystDecision.FRAUD)
+                .with_only_columns(ReviewQueue.id)
+                .subquery()
+            )
+        ).scalar_one()
+
+        marked_legitimate = self.db.execute(
+            select(func.count()).select_from(
+                base.where(ReviewQueue.analyst_decision == AnalystDecision.LEGITIMATE)
+                .with_only_columns(ReviewQueue.id)
+                .subquery()
+            )
+        ).scalar_one()
+
+        avg_seconds = self.db.execute(
+            select(func.avg(func.extract("epoch", ReviewQueue.resolved_at - ReviewQueue.created_at))).where(
+                ReviewQueue.assigned_analyst_id == analyst_id,
+                ReviewQueue.status == ReviewStatus.RESOLVED,
+                ReviewQueue.resolved_at.is_not(None),
+            )
+        ).scalar_one()
+
+        return {
+            "cases_reviewed": cases_reviewed,
+            "fraud_confirmed": fraud_confirmed,
+            "marked_legitimate": marked_legitimate,
+            "avg_response_minutes": round(avg_seconds / 60, 1) if avg_seconds is not None else None,
+        }
+
+    def list_recent_activity_for_analyst(self, analyst_id: uuid.UUID, limit: int = 10) -> list[ReviewQueue]:
+        stmt = (
+            select(ReviewQueue)
+            .options(*_EAGER_LOAD)
+            .where(ReviewQueue.assigned_analyst_id == analyst_id, ReviewQueue.status == ReviewStatus.RESOLVED)
+            .order_by(ReviewQueue.resolved_at.desc())
+            .limit(limit)
+        )
+        return list(self.db.execute(stmt).unique().scalars().all())

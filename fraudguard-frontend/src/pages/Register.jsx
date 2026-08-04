@@ -8,6 +8,7 @@ import toast from 'react-hot-toast'
 import { ShieldCheck, Mail, Lock, User, Building2, Eye, EyeOff, ArrowRight, CheckCircle2 } from 'lucide-react'
 import GradientBlobs from '../components/ui/GradientBlobs'
 import { useAuth } from '../context/AuthContext'
+import { getApiErrorMessage } from '../lib/api'
 
 const schema = z
   .object({
@@ -41,8 +42,7 @@ export default function Register() {
       toast.success('Account created — welcome to FraudGuard')
       navigate('/dashboard')
     } catch (err) {
-      const detail = err.response?.data?.detail
-      toast.error(typeof detail === 'string' ? detail : 'Could not create account')
+      toast.error(getApiErrorMessage(err, 'Could not create account'))
     }
   }
 

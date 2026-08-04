@@ -18,7 +18,7 @@ import NotificationsPanel from '../components/dashboard/NotificationsPanel'
 import { fraudApi } from '../lib/api'
 import { downloadBlobResponse } from '../lib/utils'
 import { mapDashboardStats, mapDashboardCharts, mapAlerts, mapTransactionListItem, mapTransactionDetail } from '../lib/transform'
-import { NOTIFICATIONS } from '../data/mockData'
+import { useNotifications } from '../context/NotificationsContext'
 
 const EMPTY_STATS = {
   totalTransactions: 0,
@@ -30,6 +30,7 @@ const EMPTY_STATS = {
 }
 
 export default function Dashboard() {
+  const { notifications, unreadCount, markRead, markAllRead } = useNotifications()
   const [selectedId, setSelectedId] = useState(null)
   const [selected, setSelected] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -242,7 +243,12 @@ export default function Dashboard() {
             ))}
           </div>
         </GlassCard>
-        <NotificationsPanel notifications={NOTIFICATIONS} />
+        <NotificationsPanel
+          notifications={notifications}
+          unreadCount={unreadCount}
+          onMarkRead={markRead}
+          onMarkAllRead={markAllRead}
+        />
       </div>
 
       <TransactionDrawer transaction={selected} onClose={() => setSelectedId(null)} />

@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.fraud_log import LogStatus, PipelineStage
 from app.models.fraud_prediction import Decision
+from app.models.review import AnalystDecision, ReviewStatus
 
 
 class TransactionCreate(BaseModel):
@@ -111,6 +112,24 @@ class TransactionOut(BaseModel):
         )
 
 
+class TransactionReviewSummary(BaseModel):
+    """
+    Minimal review-queue summary embedded in the transaction detail view —
+    just enough for the frontend to know whether a review exists at all
+    (only BLOCKED transactions get one; see ReviewService.create_review_if_needed)
+    and what state it's in, without a second round trip to /review-queue.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    status: ReviewStatus
+    analyst_decision: Optional[AnalystDecision] = None
+    assigned_analyst_name: Optional[str] = None
+    notes: Optional[str] = None
+    resolved_at: Optional[datetime] = None
+
+
 class TransactionDetailOut(BaseModel):
     """Full detail view — everything the frontend's transaction drawer needs."""
 
@@ -130,6 +149,7 @@ class TransactionDetailOut(BaseModel):
     created_at: datetime
     prediction: Optional[FraudPredictionOut] = None
     decision_history: List[FraudLogOut] = Field(default_factory=list)
+    review: Optional[TransactionReviewSummary] = None
 
 
 class TransactionListResponse(BaseModel):

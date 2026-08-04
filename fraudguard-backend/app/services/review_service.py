@@ -38,6 +38,7 @@ from app.schemas.review import (
     ReviewResolveRequest,
 )
 from app.schemas.transaction import ShapFeatureOut
+from app.schemas.user import ProfileActivityItemOut, ProfileStatsOut
 
 
 class ReviewService:
@@ -157,3 +158,22 @@ class ReviewService:
             time_feature=txn.time_feature,
             currency=txn.currency,
         )
+
+    # ------------------------------------------------------------------ #
+    # Profile page — real per-analyst stats and activity, computed from
+    # this SAME review-queue data rather than a fabricated "accuracy" number.
+    # ------------------------------------------------------------------ #
+    def get_profile_stats(self, analyst_id: uuid.UUID) -> ProfileStatsOut:
+        return ProfileStatsOut(**self.reviews.get_stats_for_analyst(analyst_id))
+
+    def get_recent_activity(self, analyst_id: uuid.UUID, limit: int = 10) -> List[ProfileActivityItemOut]:
+        reviews = self.reviews.list_recent_activity_for_analyst(analyst_id, limit=limit)
+        return [
+            ProfileActivityItemOut(
+                transaction_id=r.fraud_prediction.transaction_id,
+                merchant=r.fraud_prediction.transaction.merchant if r.fraud_prediction.transaction else None,
+                analyst_decision=r.analyst_decision.value if r.analyst_decision else None,
+                resolved_at=r.resolved_at,
+            )
+            for r in reviews
+        ]

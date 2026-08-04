@@ -40,3 +40,14 @@ class UserRepository:
         self.db.commit()
         self.db.refresh(user)
         return user
+
+    def list_all(self, page: int = 1, page_size: int = 50) -> tuple[list[User], int]:
+        total = self.db.execute(select(func.count()).select_from(User)).scalar_one()
+        stmt = (
+            select(User)
+            .order_by(User.created_at.asc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+        items = list(self.db.execute(stmt).scalars().all())
+        return items, total

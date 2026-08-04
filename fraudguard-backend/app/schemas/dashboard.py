@@ -91,6 +91,12 @@ class MerchantRiskOut(BaseModel):
     total_count: int
 
 
+class CurrencyBreakdownOut(BaseModel):
+    currency: str
+    total_count: int
+    flagged_count: int
+
+
 class AnalyticsOut(BaseModel):
     volume: VolumeSeriesOut
     fraud_distribution: DecisionDistributionOut
@@ -98,3 +104,4 @@ class AnalyticsOut(BaseModel):
     heatmap: List[HeatmapRow]
     heatmap_hours: List[str]
     top_merchants_by_risk: List[MerchantRiskOut]
+    currency_breakdown: List[CurrencyBreakdownOut]

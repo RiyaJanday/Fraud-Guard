@@ -14,6 +14,7 @@ from app.repositories.model_registry_repository import ModelRegistryRepository
 from app.schemas.dashboard import (
     AlertOut,
     AnalyticsOut,
+    CurrencyBreakdownOut,
     DashboardChartsOut,
     DashboardDeltas,
     DashboardStatsOut,
@@ -126,6 +127,7 @@ class AnalyticsService:
         trend = self.analytics.risk_trend_by_day(days=14)
         heatmap = self.analytics.heatmap_by_day_hour()
         top_merchants = self.analytics.top_merchants_by_risk()
+        currencies = self.analytics.currency_breakdown()
 
         return AnalyticsOut(
             volume=VolumeSeriesOut(**volume),
@@ -134,6 +136,7 @@ class AnalyticsService:
             heatmap=[HeatmapRow(**row) for row in heatmap["rows"]],
             heatmap_hours=heatmap["hours"],
             top_merchants_by_risk=[MerchantRiskOut(**m) for m in top_merchants],
+            currency_breakdown=[CurrencyBreakdownOut(**c) for c in currencies],
         )
 
     # ------------------------------------------------------------------ #

@@ -178,3 +178,32 @@ class AuthService:
         if jti and exp:
             ttl = int(exp - datetime.now(timezone.utc).timestamp())
             blacklist_token(jti, ttl)
+
+    # ------------------------------------------------------------------ #
+    # Profile / self-service (Settings page)
+    # ------------------------------------------------------------------ #
+    def update_profile(self, user: User, full_name: str) -> User:
+        user.full_name = full_name
+        user = self.users.save(user)
+        logger.info("Profile updated | user_id={}", user.id)
+        return user
+
+    def change_password(self, user: User, current_password: str, new_password: str) -> None:
+        if not verify_password(current_password, user.hashed_password):
+            raise CredentialsException("Current password is incorrect.")
+        user.hashed_password = hash_password(new_password)
+        self.users.save(user)
+        logger.info("Password changed via Settings | user_id={}", user.id)
+
+    def get_notification_preferences(self, user: User) -> dict:
+        return user.notification_preferences or {}
+
+    def update_notification_preferences(self, user: User, preferences: dict) -> dict:
+        # Merge rather than overwrite — a client sending only the keys it
+        # actually changed shouldn't silently wipe out preferences it never
+        # touched (e.g. a future settings tab that only exposes 2 of 5 toggles).
+        merged = {**(user.notification_preferences or {}), **preferences}
+        user.notification_preferences = merged
+        self.users.save(user)
+        logger.info("Notification preferences updated | user_id={}", user.id)
+        return merged

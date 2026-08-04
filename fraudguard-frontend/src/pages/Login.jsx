@@ -8,6 +8,7 @@ import toast from 'react-hot-toast'
 import { ShieldCheck, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react'
 import GradientBlobs from '../components/ui/GradientBlobs'
 import { useAuth } from '../context/AuthContext'
+import { getApiErrorMessage } from '../lib/api'
 
 const schema = z.object({
   email: z.string().email('Enter a valid email address'),
@@ -27,8 +28,7 @@ export default function Login() {
       toast.success('Welcome back to FraudGuard')
       navigate('/dashboard')
     } catch (err) {
-      const detail = err.response?.data?.detail
-      toast.error(typeof detail === 'string' ? detail : 'Invalid email or password')
+      toast.error(getApiErrorMessage(err, 'Invalid email or password'))
     }
   }
 
