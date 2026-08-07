@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
-import { fraudApi } from '../lib/api'
+import { fraudApi, getAccessToken, getRefreshToken, setTokens, clearTokens } from '../lib/api'
 
 const AuthContext = createContext(null)
 
@@ -23,11 +23,6 @@ function mapUser(u) {
 }
 
 export function AuthProvider({ children }) {
-  // Only a small, non-sensitive display cache (name/role/avatar initials) —
-  // NEVER the access/refresh tokens themselves, which live exclusively in
-  // httpOnly cookies the browser controls and this JS can't read. This
-  // cache just avoids a name/avatar flash on reload; it is never trusted
-  // as proof of an active session on its own (see the /auth/me check below).
   const [user, setUser] = useState(() => {
     const cached = localStorage.getItem('fraudguard_user')
     return cached ? JSON.parse(cached) : null
@@ -35,11 +30,15 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(false)
   const [initializing, setInitializing] = useState(true)
 
-  // On mount, always verify against the backend rather than trusting the
-  // local cache — there's no client-readable token anymore to check for
-  // presence/absence, so GET /auth/me (cookie-authenticated) is the only
-  // real signal of whether a session is actually still valid.
+  // On mount, verify the cached token is still actually valid against the
+  // backend (rather than just trusting localStorage) — a token could have
+  // expired, been revoked, or the user could've been deactivated elsewhere.
   useEffect(() => {
+    const token = getAccessToken()
+    if (!token) {
+      setInitializing(false)
+      return
+    }
     fraudApi
       .me()
       .then(({ data }) => {
@@ -48,6 +47,7 @@ export function AuthProvider({ children }) {
         setUser(nextUser)
       })
       .catch(() => {
+        clearTokens()
         localStorage.removeItem('fraudguard_user')
         setUser(null)
       })
@@ -58,8 +58,7 @@ export function AuthProvider({ children }) {
     setLoading(true)
     try {
       const { data } = await fraudApi.login({ email, password })
-      // No token handling here — /auth/login's Set-Cookie headers already
-      // put the httpOnly auth cookies + csrf_token cookie in place.
+      setTokens(data)
       const nextUser = mapUser(data.user)
       localStorage.setItem('fraudguard_user', JSON.stringify(nextUser))
       setUser(nextUser)
@@ -75,6 +74,7 @@ export function AuthProvider({ children }) {
       await fraudApi.register({ full_name, email, password, role: role || 'analyst' })
       // Backend register doesn't establish a session itself, so log in right after.
       const { data } = await fraudApi.login({ email, password })
+      setTokens(data)
       const nextUser = mapUser(data.user)
       localStorage.setItem('fraudguard_user', JSON.stringify(nextUser))
       setUser(nextUser)
@@ -85,7 +85,9 @@ export function AuthProvider({ children }) {
   }, [])
 
   const logout = useCallback(() => {
-    fraudApi.logout().catch(() => {}) // best-effort server-side revoke + cookie clear
+    const refreshToken = getRefreshToken()
+    fraudApi.logout(refreshToken).catch(() => {})
+    clearTokens()
     localStorage.removeItem('fraudguard_user')
     setUser(null)
   }, [])

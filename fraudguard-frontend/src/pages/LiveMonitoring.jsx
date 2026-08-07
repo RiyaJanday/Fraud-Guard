@@ -6,7 +6,7 @@ import PageHeader from '../components/ui/PageHeader'
 import GlassCard from '../components/ui/GlassCard'
 import StatusBadge from '../components/transactions/StatusBadge'
 import TransactionDrawer from '../components/transactions/TransactionDrawer'
-import { fraudApi, getNotificationsWebSocketUrl } from '../lib/api'
+import { fraudApi, getAccessToken, getNotificationsWebSocketUrl } from '../lib/api'
 import { mapTransactionListItem, mapTransactionDetail } from '../lib/transform'
 import { formatCurrency, formatTime, cn } from '../lib/utils'
 
@@ -44,10 +44,9 @@ export default function LiveMonitoring() {
     let reconnectTimer
 
     function connect() {
-      if (cancelled) return
-      // No token argument — the access_token httpOnly cookie authenticates
-      // the WS handshake automatically. See lib/api.js.
-      const ws = new WebSocket(getNotificationsWebSocketUrl())
+      const token = getAccessToken()
+      if (!token || cancelled) return
+      const ws = new WebSocket(getNotificationsWebSocketUrl(token))
       wsRef.current = ws
 
       ws.onopen = () => setConnected(true)
