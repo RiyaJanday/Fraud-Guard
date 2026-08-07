@@ -44,27 +44,31 @@ account you registered above.
 
 ## Before the actual demo
 
-- Run through the flow once end-to-end the night before: login → Dashboard
-  loads real stats → Transactions page → submit a test prediction via
-  Swagger's `POST /api/v1/predict` (or wire a page to it) → confirm it shows
-  up.
-- Known limitation to be upfront about if asked: **Live Monitoring, Fraud
-  Analytics, Explainability, Reports, Settings, and Profile pages still
-  display placeholder/mock data** — only Dashboard, Transactions, and Auth
-  are wired to the real backend so far (see the "What's Actually Connected"
-  section below).
+- Run through the flow once end-to-end the night before: register/log in →
+  Dashboard loads real stats → Transactions page → submit a test prediction
+  via Swagger's `POST /api/v1/predict` → confirm it shows up on Dashboard,
+  Live Monitoring, and Transactions.
+- Consider running `seed_demo_data.py` a day or two beforehand rather than
+  right before the demo — charts that bucket by hour/day (Transaction
+  Volume, Risk Trend) look flat if every transaction was submitted in one
+  short burst, since there's no real time spread to show. A demo run the
+  night before is enough to avoid this.
 - If Docker isn't available on the demo machine, fall back to the manual
   Postgres+Redis install path in `fraudguard-backend/README.md`.
 
 ## What's Actually Connected Today
 
+Every page in the dashboard is wired to the real backend — there is no mock
+data left in the running app.
+
 | Page | Status |
 |---|---|
-| Login / Register | Real backend (JWT auth) |
-| Dashboard | Real backend (stats, charts, alerts, recent transactions) |
+| Login / Register | Real backend (JWT auth, bootstrap-admin-on-first-account) |
+| Dashboard | Real backend (stats, charts, alerts, recent transactions, live model metrics) |
 | Transactions | Real backend (search, filter, pagination) |
-| Live Monitoring | Mock data (needs backend WebSockets — not built yet) |
-| Fraud Analytics | Mock data |
-| Explainability | Mock data (backend SHAP endpoint exists via `/predict`, just not wired here) |
-| Reports | Static list (backend PDF/CSV export not built yet) |
-| Settings / Profile | Mostly static/cosmetic |
+| Live Monitoring | Real backend (WebSocket transaction feed) |
+| Fraud Analytics | Real backend (merchant/decision aggregates) |
+| Explainability | Real backend (SHAP feature importance + per-transaction explanations) |
+| Reports | Real backend (PDF/CSV export, generated on request) |
+| Settings | Real backend (password change, notification preferences, team management) |
+| Profile | Real backend (review stats, resolved-case activity) |

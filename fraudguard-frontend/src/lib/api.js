@@ -1,49 +1,55 @@
 import axios from 'axios'
 
-// Central Axios instance, now pointed at the real FraudGuard FastAPI backend.
+// Central Axios instance, pointed at the real FraudGuard FastAPI backend.
 // VITE_API_BASE_URL should include the /api/v1 prefix, e.g.
 //   http://localhost:8000/api/v1
+//
+// Auth: this app authenticates via httpOnly cookies set by the backend on
+// /auth/login and /auth/refresh (see backend app/core/cookies.py), NOT by
+// storing a token in localStorage/JS. `withCredentials: true` is what
+// makes the browser actually attach those cookies to cross-origin requests
+// (the deployed frontend and backend are on different domains — Vercel and
+// Render). There is deliberately no token-storage helper in this file
+// anymore, and no Authorization header is ever set from the client side —
+// the cookie does that job invisibly.
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1',
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
 })
 
-const ACCESS_TOKEN_KEY = 'fraudguard_access_token'
-const REFRESH_TOKEN_KEY = 'fraudguard_refresh_token'
-
-export function getAccessToken() {
-  return localStorage.getItem(ACCESS_TOKEN_KEY)
+// Reads the (deliberately non-httpOnly) csrf_token cookie the backend sets
+// alongside the httpOnly auth cookies, so it can be echoed back as a
+// header. This is the frontend half of the double-submit CSRF defense —
+// see backend app/core/security.py:verify_csrf for the other half.
+function getCsrfTokenFromCookie() {
+  const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/)
+  return match ? decodeURIComponent(match[1]) : null
 }
 
-export function getRefreshToken() {
-  return localStorage.getItem(REFRESH_TOKEN_KEY)
-}
-
-export function setTokens({ access_token, refresh_token }) {
-  if (access_token) localStorage.setItem(ACCESS_TOKEN_KEY, access_token)
-  if (refresh_token) localStorage.setItem(REFRESH_TOKEN_KEY, refresh_token)
-}
-
-export function clearTokens() {
-  localStorage.removeItem(ACCESS_TOKEN_KEY)
-  localStorage.removeItem(REFRESH_TOKEN_KEY)
-}
+const MUTATING_METHODS = new Set(['post', 'put', 'patch', 'delete'])
 
 api.interceptors.request.use((config) => {
-  const token = getAccessToken()
-  if (token) config.headers.Authorization = `Bearer ${token}`
+  if (MUTATING_METHODS.has((config.method || '').toLowerCase())) {
+    const csrfToken = getCsrfTokenFromCookie()
+    if (csrfToken) config.headers['X-CSRF-Token'] = csrfToken
+  }
   return config
 })
 
 // Queue concurrent 401s while a single refresh request is in flight, so we
 // don't fire multiple /auth/refresh calls (which rotates/invalidates the
-// refresh token) for one batch of parallel dashboard requests.
+// refresh token) for one batch of parallel dashboard requests. Nothing here
+// needs to carry a token value anymore — the refreshed cookies are set
+// directly by the browser from the /auth/refresh response, and the request
+// interceptor above re-reads the (now-rotated) csrf_token cookie fresh on
+// every retried request.
 let isRefreshing = false
 let pendingQueue = []
 
-function resolvePending(error, token) {
-  pendingQueue.forEach(({ resolve, reject }) => (error ? reject(error) : resolve(token)))
+function resolvePending(error) {
+  pendingQueue.forEach(({ resolve, reject }) => (error ? reject(error) : resolve()))
   pendingQueue = []
 }
 
@@ -58,17 +64,10 @@ api.interceptors.response.use(
       return Promise.reject(error)
     }
 
-    const refreshToken = getRefreshToken()
-    if (!refreshToken) {
-      clearTokens()
-      return Promise.reject(error)
-    }
-
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
         pendingQueue.push({ resolve, reject })
-      }).then((token) => {
-        originalRequest.headers.Authorization = `Bearer ${token}`
+      }).then(() => {
         originalRequest._retry = true
         return api(originalRequest)
       })
@@ -78,17 +77,13 @@ api.interceptors.response.use(
     isRefreshing = true
 
     try {
-      const { data } = await axios.post(
-        `${api.defaults.baseURL}/auth/refresh`,
-        { refresh_token: refreshToken }
-      )
-      setTokens(data)
-      resolvePending(null, data.access_token)
-      originalRequest.headers.Authorization = `Bearer ${data.access_token}`
+      // No body needed — the refresh_token httpOnly cookie carries it, and
+      // the CSRF header is attached automatically by the request interceptor.
+      await api.post('/auth/refresh')
+      resolvePending(null)
       return api(originalRequest)
     } catch (refreshError) {
-      resolvePending(refreshError, null)
-      clearTokens()
+      resolvePending(refreshError)
       window.location.href = '/login'
       return Promise.reject(refreshError)
     } finally {
@@ -116,7 +111,8 @@ export const fraudApi = {
   updateNotificationPreferences: (preferences) => api.patch('/auth/notification-preferences', { preferences }),
   getMyStats: () => api.get('/auth/me/stats'),
   getMyActivity: () => api.get('/auth/me/activity'),
-  logout: (refresh_token) => api.post('/auth/logout', refresh_token ? { refresh_token } : {}),
+  // No body needed — the backend reads + clears the httpOnly cookies directly.
+  logout: () => api.post('/auth/logout'),
 
   // --- User management (admin) -------------------------------------------
   listUsers: (params) => api.get('/users', { params }),
@@ -160,8 +156,13 @@ export const fraudApi = {
 // place (the .env file) that needs to know the backend's real address —
 // http://… becomes ws://…, https://… becomes wss://… (required: browsers
 // refuse a plain ws:// connection from an https:// page).
-export function getNotificationsWebSocketUrl(token) {
+//
+// No token is passed here anymore — the access_token httpOnly cookie is
+// attached automatically by the browser during the WebSocket handshake
+// (it's still just an HTTP GET under the hood), exactly like any other
+// cookie-authenticated request. See backend app/api/v1/ws.py.
+export function getNotificationsWebSocketUrl() {
   const httpBase = api.defaults.baseURL
   const wsBase = httpBase.replace(/^http/, 'ws')
-  return `${wsBase}/ws/notifications?token=${encodeURIComponent(token)}`
+  return `${wsBase}/ws/notifications`
 }

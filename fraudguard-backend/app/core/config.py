@@ -40,7 +40,6 @@ class Settings(BaseSettings):
     VERSION: str = "0.1.0"
     ENVIRONMENT: Literal["development", "staging", "production", "test"] = "development"
     API_V1_PREFIX: str = "/api/v1"
-    DEBUG: bool = True
 
     # ------------------------------------------------------------------ #
     # Security / JWT

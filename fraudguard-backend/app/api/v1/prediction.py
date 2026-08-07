@@ -1,8 +1,10 @@
 """POST /predict — real-time fraud scoring endpoint."""
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
+from app.core.rate_limit import limiter
 from app.core.security import require_role
 from app.database.session import get_db
 from app.models.user import User, UserRole
@@ -10,6 +12,7 @@ from app.schemas.transaction import TransactionCreate, TransactionDetailOut
 from app.services.transaction_service import TransactionService
 
 router = APIRouter()
+settings = get_settings()
 
 
 @router.post(
@@ -28,7 +31,9 @@ router = APIRouter()
         503: {"description": "No trained model is available yet — run train_model.py first."},
     },
 )
+@limiter.limit(settings.RATE_LIMIT_PREDICT)
 def predict(
+    request: Request,
     payload: TransactionCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.ADMIN, UserRole.ANALYST)),

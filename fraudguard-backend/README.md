@@ -42,7 +42,7 @@ fraudguard-backend/
 │   │   ├── training.py
 │   │   ├── evaluation.py
 │   │   ├── shap_service.py
-│   │   └── drift_detector.py   # Step 7 remainder — not yet built
+│   │   └── drift_detector.py   # KS-test drift detection (Step 7)
 │   └── main.py               # FastAPI app factory
 ├── tests/
 ├── train_model.py            # Standalone training pipeline entry point
@@ -569,7 +569,8 @@ project's clean-architecture requirements.
     `POST /predict` all confirmed working end-to-end against the
     containerized stack (see Steps 8/9 verification notes above, run
     against this same Docker setup)
-  - **Still pending**: `tests/` currently has no test suite — `pytest` and
-    `httpx` are in `requirements.txt` but unused so far. Also pending: an
-    actual live deployment to Render + Vercel (the guide is written and
-    ready, but hasn't yet been executed against real Render/Vercel accounts)
+  - **Everything above is deployed and live** — `docker compose up --build`
+    is verified working for local/offline demos, and the app is also live
+    at https://fraud-guard-kappa.vercel.app (Vercel frontend + Render
+    backend/Postgres/Redis) with a trained model registered in production.
+    See the project-root `README.md` for the live URL and demo login.

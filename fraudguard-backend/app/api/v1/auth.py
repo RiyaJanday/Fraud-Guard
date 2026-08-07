@@ -6,14 +6,19 @@ delegates all logic to AuthService. Consistent with clean architecture:
 API layer -> Service layer -> Repository layer -> Database.
 """
 
+import secrets
 from typing import List
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
+from app.core.cookies import ACCESS_COOKIE, clear_auth_cookies, set_auth_cookies
+from app.core.exceptions import CredentialsException
 from app.core.logging import logger
-from app.core.security import bearer_scheme, get_current_user
+from app.core.rate_limit import limiter
+from app.core.security import bearer_scheme, get_current_user, verify_csrf
 from app.database.session import get_db
 from app.models.user import User
 from app.schemas.user import (
@@ -37,6 +42,7 @@ from app.services.auth_service import AuthService
 from app.services.review_service import ReviewService
 
 router = APIRouter()
+settings = get_settings()
 
 
 @router.post(
@@ -50,7 +56,8 @@ router = APIRouter()
         "role (Analyst or Auditor) — self-registering as Admin is rejected."
     ),
 )
-def register(payload: UserRegister, db: Session = Depends(get_db)) -> User:
+@limiter.limit(settings.RATE_LIMIT_AUTH)
+def register(request: Request, payload: UserRegister, db: Session = Depends(get_db)) -> User:
     return AuthService(db).register(payload)
 
 
@@ -58,19 +65,51 @@ def register(payload: UserRegister, db: Session = Depends(get_db)) -> User:
     "/login",
     response_model=TokenResponse,
     summary="Log in with email and password",
+    description=(
+        "Returns tokens in the JSON body (for API clients, scripts, and "
+        "Swagger) AND sets them as httpOnly cookies (for the browser SPA, "
+        "which never persists a token in JS-accessible storage). See "
+        "app/core/cookies.py."
+    ),
 )
-def login(payload: UserLogin, db: Session = Depends(get_db)) -> TokenResponse:
-    return AuthService(db).login(payload)
+@limiter.limit(settings.RATE_LIMIT_AUTH)
+def login(request: Request, response: Response, payload: UserLogin, db: Session = Depends(get_db)) -> TokenResponse:
+    result = AuthService(db).login(payload)
+    set_auth_cookies(response, result.access_token, result.refresh_token, secrets.token_urlsafe(32))
+    return result
 
 
 @router.post(
     "/refresh",
     response_model=TokenResponse,
     summary="Exchange a refresh token for a new access/refresh token pair",
-    description="The refresh token used in this call is immediately revoked (single-use / rotation).",
+    description=(
+        "The refresh token used in this call is immediately revoked "
+        "(single-use / rotation). Browser callers send no body at all — the "
+        "refresh token is read from its httpOnly cookie instead, and a "
+        "matching X-CSRF-Token header is required in that case. API/script "
+        "callers may instead pass refresh_token explicitly in the body, "
+        "which is exempt from the CSRF check (no ambient cookie credential "
+        "is being relied on)."
+    ),
 )
-def refresh(payload: RefreshTokenRequest, db: Session = Depends(get_db)) -> TokenResponse:
-    return AuthService(db).refresh(payload.refresh_token)
+def refresh(
+    request: Request,
+    response: Response,
+    payload: RefreshTokenRequest | None = None,
+    db: Session = Depends(get_db),
+) -> TokenResponse:
+    if payload and payload.refresh_token:
+        token = payload.refresh_token
+    else:
+        token = request.cookies.get("refresh_token")
+        if not token:
+            raise CredentialsException("No refresh token provided.")
+        verify_csrf(request)
+
+    result = AuthService(db).refresh(token)
+    set_auth_cookies(response, result.access_token, result.refresh_token, secrets.token_urlsafe(32))
+    return result
 
 
 @router.post(
@@ -85,15 +124,24 @@ def refresh(payload: RefreshTokenRequest, db: Session = Depends(get_db)) -> Toke
     ),
 )
 def logout(
+    request: Request,
+    response: Response,
     payload: RefreshTokenRequest | None = None,
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> MessageResponse:
+    # current_user (via get_current_user) already accepted either a header or
+    # the access_token cookie. `credentials` is only set for the header path —
+    # fall back to the cookie directly so a cookie-authenticated logout still
+    # blacklists the right token instead of silently blacklisting nothing.
+    access_token = credentials.credentials if credentials else request.cookies.get(ACCESS_COOKIE, "")
+    refresh_token = payload.refresh_token if payload else request.cookies.get("refresh_token")
     AuthService(db).logout(
-        access_token=credentials.credentials,
-        refresh_token=payload.refresh_token if payload else None,
+        access_token=access_token,
+        refresh_token=refresh_token,
     )
+    clear_auth_cookies(response)
     logger.info("Logout endpoint called | user_id={}", current_user.id)
     return MessageResponse(message="Logged out successfully.")
 
@@ -197,7 +245,8 @@ def get_my_activity(
         "provider is wired up yet) so this flow can be tested end-to-end."
     ),
 )
-def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)) -> ForgotPasswordResponse:
+@limiter.limit(settings.RATE_LIMIT_AUTH)
+def forgot_password(request: Request, payload: ForgotPasswordRequest, db: Session = Depends(get_db)) -> ForgotPasswordResponse:
     token = AuthService(db).forgot_password(payload.email)
     return ForgotPasswordResponse(dev_reset_token=token)
 
@@ -207,6 +256,7 @@ def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db
     response_model=MessageResponse,
     summary="Reset a password using a reset token",
 )
-def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)) -> MessageResponse:
+@limiter.limit(settings.RATE_LIMIT_AUTH)
+def reset_password(request: Request, payload: ResetPasswordRequest, db: Session = Depends(get_db)) -> MessageResponse:
     AuthService(db).reset_password(payload.token, payload.new_password)
     return MessageResponse(message="Password has been reset successfully. Please log in with your new password.")

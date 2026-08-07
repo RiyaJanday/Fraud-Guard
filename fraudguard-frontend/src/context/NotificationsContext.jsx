@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react'
 import toast from 'react-hot-toast'
-import { fraudApi, getAccessToken, getNotificationsWebSocketUrl } from '../lib/api'
+import { fraudApi, getNotificationsWebSocketUrl } from '../lib/api'
 import { useAuth } from './AuthContext'
 
 const NotificationsContext = createContext(null)
@@ -71,10 +71,11 @@ export function NotificationsProvider({ children }) {
     let cancelled = false
 
     function connect() {
-      const token = getAccessToken()
-      if (!token || cancelled) return
+      if (cancelled) return
 
-      const ws = new WebSocket(getNotificationsWebSocketUrl(token))
+      // No token argument — the access_token httpOnly cookie authenticates
+      // the WS handshake automatically. See lib/api.js.
+      const ws = new WebSocket(getNotificationsWebSocketUrl())
       wsRef.current = ws
 
       ws.onopen = () => {

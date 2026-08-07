@@ -25,6 +25,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.logging import logger
@@ -162,6 +163,21 @@ def _sanitize_validation_errors(errors: list) -> list:
 
 def register_exception_handlers(app: FastAPI) -> None:
     """Attach every exception handler to the FastAPI app. Called once in main.py."""
+
+    @app.exception_handler(RateLimitExceeded)
+    async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+        # SlowAPI's own default handler returns a differently-shaped plain-text
+        # response — routed through _error_response instead so a 429 looks like
+        # every other error in this API, not a one-off exception to the frontend.
+        logger.warning(
+            "Rate limit exceeded | path={} | limit={}", request.url.path, exc.detail
+        )
+        return _error_response(
+            request,
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "RATE_LIMIT_EXCEEDED",
+            f"Too many requests. Limit: {exc.detail}. Please wait before trying again.",
+        )
 
     @app.exception_handler(AppException)
     async def app_exception_handler(request: Request, exc: AppException) -> JSONResponse:

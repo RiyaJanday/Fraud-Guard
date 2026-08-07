@@ -21,17 +21,19 @@ Every token carries a `jti` (JWT ID). Logout blacklists that jti in Redis
 until the token's natural expiry — see app/core/redis_client.py.
 """
 
+import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import ExpiredSignatureError, JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.cookies import ACCESS_COOKIE, CSRF_COOKIE, CSRF_HEADER
 from app.core.exceptions import CredentialsException, PermissionDeniedException
 from app.core.logging import logger
 from app.core.redis_client import is_token_blacklisted
@@ -150,26 +152,74 @@ def decode_token(token: str, secret_key: str, expected_type: str) -> dict:
 # `Authorization: Bearer <token>` and, as a bonus, renders as a simple
 # "paste your token" field in Swagger's Authorize dialog rather than a
 # username/password form that wouldn't actually match our login route.
+#
+# auto_error=False: a request can ALSO authenticate purely via the
+# access_token httpOnly cookie set by /login (see core/cookies.py), with no
+# Authorization header at all — that's how the browser SPA authenticates.
+# HTTPBearer must not 401 just because the header is absent; get_current_user
+# below is what actually decides whether *any* valid credential was found.
 # ---------------------------------------------------------------------- #
 bearer_scheme = HTTPBearer(
-    auto_error=True,
+    auto_error=False,
     description="Paste the access_token returned by POST /api/v1/auth/login",
 )
 
+_CSRF_PROTECTED_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+def verify_csrf(request: Request) -> None:
+    """
+    Double-submit CSRF check: the csrf_token cookie (readable by JS, set
+    alongside the httpOnly auth cookies) must match an X-CSRF-Token header
+    the frontend echoes back. Only meaningful — and only ever called — for
+    requests authenticating via cookie; see callers.
+    """
+    cookie_value = request.cookies.get(CSRF_COOKIE)
+    header_value = request.headers.get(CSRF_HEADER)
+    if not cookie_value or not header_value or not secrets.compare_digest(cookie_value, header_value):
+        raise PermissionDeniedException(
+            "Missing or invalid CSRF token. Browser sessions must echo the "
+            "csrf_token cookie back as an X-CSRF-Token header on this request."
+        )
+
+
+def _resolve_access_token(request: Request, credentials: Optional[HTTPAuthorizationCredentials]) -> str:
+    """
+    Returns the raw access token string from whichever source is present:
+    an `Authorization: Bearer` header takes priority (Swagger, scripts, the
+    test suite all use this), falling back to the access_token httpOnly
+    cookie (the browser SPA's only mechanism). CSRF is enforced here, not
+    earlier, because it only applies to the cookie path — a header-based
+    caller has no ambient browser credential for a forged request to abuse.
+    """
+    if credentials is not None:
+        return credentials.credentials
+
+    cookie_token = request.cookies.get(ACCESS_COOKIE)
+    if cookie_token:
+        if request.method in _CSRF_PROTECTED_METHODS:
+            verify_csrf(request)
+        return cookie_token
+
+    raise CredentialsException("Not authenticated. Provide a Bearer token or a valid browser session.")
+
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ) -> User:
     """
-    Resolves the caller's User from the access token.
+    Resolves the caller's User from the access token (header or cookie —
+    see _resolve_access_token).
 
     Deliberately still queries the database on every request (rather than
     trusting the token's embedded role claim alone) so that deactivating a
     user takes effect immediately, instead of waiting up to
     ACCESS_TOKEN_EXPIRE_MINUTES for their existing token to expire.
     """
-    payload = decode_token(credentials.credentials, settings.SECRET_KEY, TokenType.ACCESS)
+    access_token = _resolve_access_token(request, credentials)
+    payload = decode_token(access_token, settings.SECRET_KEY, TokenType.ACCESS)
 
     try:
         user_id = uuid.UUID(payload["sub"])

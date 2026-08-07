@@ -62,6 +62,22 @@ def _ensure_test_database_exists() -> None:
         admin_engine.dispose()
 
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter() -> None:
+    """
+    SlowAPI's rate limiter (see core/rate_limit.py) uses in-memory storage
+    shared across the whole pytest process — the same `app` instance (and
+    therefore the same `app.state.limiter`) is imported once and reused by
+    every test. Without a reset, admin_auth_headers alone calls the
+    RATE_LIMIT_AUTH-limited /auth/register and /auth/login endpoints twice
+    per test; nearly every test in this suite uses that fixture, so a full
+    run would trip the limit and start failing unrelated tests with 429s
+    well before all 23 finish. Reset before every test instead, same spirit
+    as db_session wiping tables before every test.
+    """
+    app.state.limiter.reset()
+
+
 @pytest.fixture(scope="session")
 def test_engine():
     _ensure_test_database_exists()

@@ -1,18 +1,21 @@
-# FraudGuard — AI-Powered Real-Time Credit Card Fraud Detection System
+# FraudGuard — Frontend
 
-A premium, production-quality fintech dashboard frontend built with React (Vite), Tailwind CSS,
-Chart.js, Framer Motion and a full glassmorphic dark UI system.
+The dashboard UI for FraudGuard: a premium, glassmorphic dark-mode fintech
+frontend built with React (Vite) and Tailwind CSS, fully wired to the real
+FastAPI backend — no mock data left in the running app.
+
+**Live:** https://fraud-guard-kappa.vercel.app
 
 ## Tech Stack
 
 - **React 19 + Vite** — app shell and build tooling
 - **Tailwind CSS 3** — utility-first styling, custom design tokens in `tailwind.config.js`
-- **Chart.js + react-chartjs-2** — Volume line chart, Fraud doughnut, Risk area chart, Model radar chart
-- **Axios** — API client (`src/lib/api.js`), ready to point at a real backend
-- **React Router 7** — routing across all 11 pages
+- **Chart.js + react-chartjs-2** — Volume line chart, Fraud doughnut, Risk trend, Model performance radar, heatmap
+- **Axios** — API client (`src/lib/api.js`), talks to the real backend
+- **React Router 7** — routing across all pages
 - **Framer Motion** — page transitions, hover states, staggered reveals, gauges
 - **Lucide React** — icon set
-- **React Hot Toast** — live fraud alert notifications
+- **React Hot Toast** — live fraud alert notifications (driven by a real WebSocket feed)
 - **React CountUp** — animated stat counters
 - **TanStack Table** — sortable, paginated transaction tables
 - **React Hook Form + Zod** — validated forms (Login, Register, Settings)
@@ -25,12 +28,12 @@ npm install
 npm run dev
 ```
 
-Open the URL Vite prints (usually http://localhost:5173). Login / Register accept any input —
-this build ships with realistic mock data (`src/data/mockData.js`) so every screen is fully
-explorable without a backend.
+Open the URL Vite prints (usually http://localhost:5173).
 
-To connect a real backend, set `VITE_API_BASE_URL` in a `.env` file (see `.env.example`) and wire
-up the calls already scaffolded in `src/lib/api.js` (`fraudApi.getStats`, `getTransactions`, etc.).
+You need a running backend for the app to be useful — see the project root's
+[`LOCAL_RUN.md`](../LOCAL_RUN.md) to boot the full stack, or point
+`VITE_API_BASE_URL` (in a `.env` file — see `.env.example`) at the deployed
+backend if you just want to browse the UI against real live data.
 
 ## Build
 
@@ -53,27 +56,41 @@ src/
   pages/            Landing, Login, Register, Dashboard, Transactions,
                      LiveMonitoring, FraudAnalytics, Explainability,
                      Reports, Settings, Profile
-  context/          AuthContext (mock auth, swap for real JWT/session flow)
-  data/             mockData.js — deterministic mock generators
-  lib/              api.js, chartSetup.js, utils.js
+  context/          AuthContext — real JWT auth (login/register/logout,
+                     token refresh, cached user, updateUser for in-place
+                     profile edits)
+  data/             mockData.js — leftover from early UI-only development;
+                     no longer imported anywhere, safe to delete
+  lib/              api.js (fraudApi — every real backend call, plus
+                     getApiErrorMessage for the backend's error envelope),
+                     transform.js (maps backend response shapes to what the
+                     UI components expect), chartSetup.js, utils.js
 ```
 
 ## Pages
 
+All pages below call `fraudApi` and render real backend data — none are
+placeholder/mock.
+
 1. **Landing** — marketing page with animated hero risk gauge, feature grid, stats
-2. **Login / Register** — validated auth forms with glassmorphic cards
-3. **Dashboard** — top stats, 6 chart types, heatmap, recent transactions, alerts, SHAP snapshot
-4. **Transactions** — searchable, filterable, sortable transaction table with detail drawer
-5. **Live Monitoring** — simulated real-time transaction stream with toast alerts
-6. **Fraud Analytics** — merchant risk, geography, trend breakdowns
-7. **Explainability (SHAP)** — global feature importance + per-transaction explanations
-8. **Reports** — filterable report library with download actions
-9. **Settings** — tabbed settings (general, security, notifications, API keys, team)
-10. **Profile** — analyst profile, stats, recent activity
+2. **Login / Register** — real JWT auth, RBAC-aware
+3. **Dashboard** — real aggregate stats (with real week-over-week deltas), 6 chart types, heatmap, recent transactions, alerts
+4. **Transactions** — searchable, filterable, sortable transaction table with detail drawer, backed by real pagination
+5. **Live Monitoring** — real-time transaction stream over a WebSocket connection, with toast alerts
+6. **Fraud Analytics** — real merchant risk, decision distribution, trend breakdowns
+7. **Explainability (SHAP)** — real global feature importance + real per-transaction SHAP explanations
+8. **Reports** — real PDF/CSV export, generated on request from live data
+9. **Settings** — real password change, real notification preferences, real team management (Admin only — invite/activate/deactivate users)
+10. **Profile** — real review-queue stats and resolved-case activity history
 
-## Notes for Production
+## Notes
 
-- Replace `src/context/AuthContext.jsx` mock login/register with real API calls.
-- Replace `src/data/mockData.js` generators with `fraudApi` calls in each page.
-- All colors, spacing and radii are centralized in `tailwind.config.js` — update the palette
-  there to re-theme the whole app.
+- `src/context/AuthContext.jsx` exposes `updateUser(partial)` so any page
+  that edits the profile (currently just Settings) can update the cached
+  user without a full re-fetch — Topbar/Profile pick up the change immediately.
+- Backend error responses are shaped `{ error: { code, message } }`, not
+  FastAPI's default `{ detail }`. Always read errors via
+  `getApiErrorMessage(err)` from `lib/api.js` rather than
+  `err.response.data.detail` directly.
+- All colors, spacing and radii are centralized in `tailwind.config.js` —
+  update the palette there to re-theme the whole app.
