@@ -1,16 +1,20 @@
 """
 Business logic for the manual review workflow:
 
-    Prediction -> (high risk) -> Manual Review Queue -> Analyst Decision
-    (fraud/legitimate) -> ground truth stored for future retraining.
+    Prediction -> (BLOCKED or MFA_REQUIRED) -> Manual Review Queue ->
+    Analyst Decision (fraud/legitimate) -> ground truth stored for future
+    retraining.
 
-"High risk" is deliberately defined as decision == BLOCKED, not
-MFA_REQUIRED. BLOCKED is the model's highest-severity call — the one most
-worth a second, human opinion before it becomes training data. MFA_REQUIRED
-already has its own automated mitigation (step-up auth) and doesn't
-auto-enter this queue. This is a judgment call, not a hard requirement from
-the spec, and is easy to widen later (see create_review_if_needed) if
-MFA_REQUIRED transactions turn out to need review too.
+Both BLOCKED and MFA_REQUIRED predictions enter this queue. Originally only
+BLOCKED did (MFA_REQUIRED was assumed to resolve itself via an automated
+step-up-auth challenge outside this system's scope) — widened per this
+module's own prior note that it would be "easy to widen later... if
+MFA_REQUIRED transactions turn out to need review too," which they do: this
+project has no actual OTP/step-up channel, so an MFA-flagged transaction
+with no review path was a dead end with no way to ever resolve it. Routing
+it through the same analyst-reviewed queue as BLOCKED transactions is more
+honest than simulating a fake OTP screen, and reuses an already-working,
+already-tested claim/resolve flow instead of building a parallel one.
 
 Ground truth capture: resolve_review's `analyst_decision` (FRAUD /
 LEGITIMATE) IS the ground truth label future retraining would use — that's
@@ -50,10 +54,13 @@ class ReviewService:
     # Called by TransactionService right after a prediction is persisted.
     # ------------------------------------------------------------------ #
     def create_review_if_needed(self, prediction: FraudPrediction) -> Optional[ReviewQueue]:
-        if prediction.decision != Decision.BLOCKED:
+        if prediction.decision not in (Decision.BLOCKED, Decision.MFA_REQUIRED):
             return None
         review = self.reviews.create(prediction.id)
-        logger.info("Transaction {} auto-queued for manual review | review_id={}", prediction.transaction_id, review.id)
+        logger.info(
+            "Transaction {} auto-queued for manual review | review_id={} decision={}",
+            prediction.transaction_id, review.id, prediction.decision.value,
+        )
         return review
 
     # ------------------------------------------------------------------ #
@@ -61,6 +68,15 @@ class ReviewService:
     # ------------------------------------------------------------------ #
     def list_reviews(self, page: int, page_size: int, status: Optional[ReviewStatus] = None) -> ReviewListResponse:
         items, total = self.reviews.list_paginated(page=page, page_size=page_size, status=status)
+        total_pages = max(1, (total + page_size - 1) // page_size)
+        return ReviewListResponse(
+            items=[self._to_out(r) for r in items], total=total, page=page, page_size=page_size, total_pages=total_pages
+        )
+
+    def list_audit_log(self, page: int, page_size: int) -> ReviewListResponse:
+        """Admin-only compliance view — every resolved review across every
+        analyst, newest first. See ReviewRepository.list_all_resolved."""
+        items, total = self.reviews.list_all_resolved(page=page, page_size=page_size)
         total_pages = max(1, (total + page_size - 1) // page_size)
         return ReviewListResponse(
             items=[self._to_out(r) for r in items], total=total, page=page, page_size=page_size, total_pages=total_pages

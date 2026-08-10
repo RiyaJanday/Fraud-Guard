@@ -116,3 +116,21 @@ class ReviewRepository:
             .limit(limit)
         )
         return list(self.db.execute(stmt).unique().scalars().all())
+
+    def list_all_resolved(self, page: int, page_size: int) -> tuple[list[ReviewQueue], int]:
+        """
+        Every resolved review, across every analyst — the compliance/audit
+        view (FR10: "all predictions, risk scores, and subsequent actions are
+        logged... for forensics"). Unlike list_paginated (which a working
+        analyst uses to triage what's still PENDING/IN_REVIEW), this only
+        ever returns RESOLVED rows and orders newest-first, since an auditor
+        is browsing history, not working through a queue.
+        """
+        stmt = select(ReviewQueue).options(*_EAGER_LOAD).where(ReviewQueue.status == ReviewStatus.RESOLVED)
+
+        count_stmt = select(func.count()).select_from(stmt.with_only_columns(ReviewQueue.id).subquery())
+        total = self.db.execute(count_stmt).scalar_one()
+
+        stmt = stmt.order_by(ReviewQueue.resolved_at.desc()).offset((page - 1) * page_size).limit(page_size)
+        items = list(self.db.execute(stmt).unique().scalars().all())
+        return items, total

@@ -150,3 +150,31 @@ def admin_auth_headers(client: TestClient) -> dict:
 
     token = login_response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture()
+def analyst_auth_headers(client: TestClient, admin_auth_headers: dict) -> dict:
+    """
+    A genuine ANALYST-role user, for tests that need to verify admin-only
+    endpoints correctly reject a non-admin. Depends on admin_auth_headers
+    (not just to reuse it, but to force it to run FIRST) because the very
+    first user ever registered against an empty `users` table becomes admin
+    automatically regardless of the requested role — registering an analyst
+    as the first user in a freshly-wiped test DB would silently produce an
+    admin instead, which would defeat the point of tests using this fixture.
+    """
+    email = f"test-analyst-{uuid.uuid4().hex[:10]}@example.com"
+    password = "TestPass123"
+
+    register_response = client.post(
+        "/api/v1/auth/register",
+        json={"email": email, "password": password, "full_name": "Test Analyst", "role": "analyst"},
+    )
+    assert register_response.status_code == 201, register_response.text
+    assert register_response.json()["role"] == "analyst"
+
+    login_response = client.post("/api/v1/auth/login", json={"email": email, "password": password})
+    assert login_response.status_code == 200, login_response.text
+
+    token = login_response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}

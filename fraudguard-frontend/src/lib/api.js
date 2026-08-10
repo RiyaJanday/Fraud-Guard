@@ -156,6 +156,14 @@ export const fraudApi = {
   // --- Manual review queue ----------------------------------------------
   claimReview: (reviewId) => api.post(`/review-queue/${reviewId}/claim`),
   resolveReview: (reviewId, payload) => api.post(`/review-queue/${reviewId}/resolve`, payload),
+  getAuditLog: (params) => api.get('/review-queue/audit-log', { params }),
+
+  // --- Drift detection ----------------------------------------------------
+  getDriftReport: () => api.get('/drift'),
+
+  // --- Model (admin retraining) --------------------------------------------
+  getModelStatus: () => api.get('/model/status'),
+  triggerRetrain: () => api.post('/model/retrain'),
 
   // --- Notifications ------------------------------------------------------
   listNotifications: (params) => api.get('/notifications', { params }),

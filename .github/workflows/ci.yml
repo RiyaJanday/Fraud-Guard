@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fraudguard
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: fraudguard-backend
+
+    env:
+      # Test-only values — never real secrets. conftest.py's
+      # _ensure_test_database_exists() creates its own `fraudguard_test`
+      # database against this connection on first run, so DATABASE_URL just
+      # needs to point at a Postgres server with CREATEDB privilege, which
+      # the default `postgres` superuser role has.
+      ENVIRONMENT: test
+      SECRET_KEY: ci-test-secret-key-not-for-production-use-only
+      JWT_REFRESH_SECRET_KEY: ci-test-refresh-secret-key-not-for-production-use
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@localhost:5432/fraudguard
+      REDIS_URL: redis://localhost:6379/0
+      CORS_ORIGINS: http://localhost:5173
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: fraudguard-backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Check trained model artifacts are present
+        # test_prediction.py exercises the REAL model (deliberately, per its
+        # own docstring — see tests/test_prediction.py), not a mock. These
+        # files are gitignored by default; DEPLOYMENT.md has you force-add
+        # them (`git add -f app/ml_engine/models/*.joblib`) for the same
+        # reason Render needs them. If this step fails, that force-add
+        # didn't happen (or was undone by a later commit).
+        run: |
+          test -f app/ml_engine/models/model.joblib || (echo "::error::model.joblib missing — see DEPLOYMENT.md's force-add step" && exit 1)
+          test -f app/ml_engine/models/scaler.joblib || (echo "::error::scaler.joblib missing — see DEPLOYMENT.md's force-add step" && exit 1)
+          test -f app/ml_engine/models/shap_explainer.joblib || (echo "::error::shap_explainer.joblib missing — see DEPLOYMENT.md's force-add step" && exit 1)
+
+      - name: Run tests
+        run: pytest -v
+
+  frontend-build:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: fraudguard-frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: fraudguard-frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        # Doesn't need a real backend — this only checks the build itself
+        # compiles cleanly (catches things like the missing-export error
+        # that broke a real deploy during this project's development).
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: http://localhost:8000/api/v1

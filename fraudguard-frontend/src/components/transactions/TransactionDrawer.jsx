@@ -21,7 +21,7 @@ function suggestedAction(status) {
     return {
       icon: ShieldQuestion,
       color: 'text-warning',
-      text: 'Step-up authentication (OTP / biometric) required before settlement can proceed.',
+      text: 'Flagged for step-up verification. This system has no live OTP/step-up channel, so it is routed to an analyst to confirm or reject below, the same as a blocked transaction.',
     }
   return {
     icon: ShieldCheck,
@@ -63,15 +63,15 @@ export default function TransactionDrawer({ transaction, onClose }) {
     }
   }
 
-  async function handleConfirm() {
+  async function handleResolve(decision) {
     if (!review) return
     setResolving(true)
     try {
-      const { data } = await fraudApi.resolveReview(review.id, { decision: 'fraud' })
+      const { data } = await fraudApi.resolveReview(review.id, { decision })
       setReview((r) => ({ ...r, status: data.status, analystDecision: data.analyst_decision, resolvedAt: data.resolved_at }))
-      toast.success('Decision confirmed — recorded as fraud')
+      toast.success(decision === 'fraud' ? 'Decision confirmed — recorded as fraud' : 'Marked as legitimate')
     } catch (err) {
-      toast.error(err?.response?.data?.detail?.message || 'Could not confirm this decision')
+      toast.error(err?.response?.data?.detail?.message || 'Could not resolve this review')
     } finally {
       setResolving(false)
     }
@@ -204,15 +204,15 @@ export default function TransactionDrawer({ transaction, onClose }) {
                 </div>
               </div>
 
-              <div className="flex gap-3 pb-4">
+              <div className="space-y-3 pb-4">
                 {!review ? (
-                  // Only BLOCKED transactions ever enter the review queue
-                  // (see ReviewService.create_review_if_needed) — there's
-                  // nothing real to confirm/escalate for an approved or
-                  // MFA transaction, so the actions don't render at all
-                  // rather than being fake buttons that do nothing.
+                  // Both BLOCKED and MFA_REQUIRED transactions enter the review
+                  // queue (see ReviewService.create_review_if_needed) — only an
+                  // approved transaction has nothing to confirm/escalate, so
+                  // the actions don't render at all rather than being fake
+                  // buttons that do nothing.
                   <p className="w-full text-center text-xs text-white/30">
-                    This transaction wasn't routed for manual review.
+                    This transaction was auto-approved and wasn't routed for manual review.
                   </p>
                 ) : review.status === 'resolved' ? (
                   <div className="flex w-full items-center justify-center gap-2 rounded-lg border border-success/30 bg-success/10 px-4 py-2.5 text-sm text-success">
@@ -225,15 +225,29 @@ export default function TransactionDrawer({ transaction, onClose }) {
                     <button
                       onClick={handleEscalate}
                       disabled={claiming || review.status === 'in_review'}
-                      className="btn-ghost flex-1 disabled:opacity-50"
+                      className="btn-ghost w-full disabled:opacity-50"
                     >
                       {claiming ? <Loader2 size={15} className="animate-spin" /> : null}
                       {review.status === 'in_review' ? 'Claimed for review' : 'Escalate to Analyst'}
                     </button>
-                    <button onClick={handleConfirm} disabled={resolving} className="btn-primary flex-1 disabled:opacity-50">
-                      {resolving ? <Loader2 size={15} className="animate-spin" /> : null}
-                      Confirm Decision
-                    </button>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => handleResolve('legitimate')}
+                        disabled={resolving}
+                        className="btn-ghost flex-1 border-success/30 text-success hover:bg-success/10 disabled:opacity-50"
+                      >
+                        {resolving ? <Loader2 size={15} className="animate-spin" /> : null}
+                        Mark Legitimate
+                      </button>
+                      <button
+                        onClick={() => handleResolve('fraud')}
+                        disabled={resolving}
+                        className="btn-primary flex-1 disabled:opacity-50"
+                      >
+                        {resolving ? <Loader2 size={15} className="animate-spin" /> : null}
+                        Confirm Fraud
+                      </button>
+                    </div>
                   </>
                 )}
               </div>

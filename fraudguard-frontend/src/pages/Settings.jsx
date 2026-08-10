@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import toast from 'react-hot-toast'
-import { User, Bell, Shield, KeyRound, Users, UserPlus, Copy, Ban, CheckCircle2 } from 'lucide-react'
+import { User, Bell, Shield, KeyRound, Users, UserPlus, Copy, Ban, CheckCircle2, Cpu, RefreshCw } from 'lucide-react'
 import PageHeader from '../components/ui/PageHeader'
 import GlassCard from '../components/ui/GlassCard'
 import { cn } from '../lib/utils'
@@ -48,6 +48,7 @@ const ALL_TABS = [
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'api', label: 'API Keys', icon: KeyRound },
   { id: 'team', label: 'Team', icon: Users, adminOnly: true },
+  { id: 'model', label: 'Model', icon: Cpu, adminOnly: true },
 ]
 
 export default function Settings() {
@@ -84,6 +85,7 @@ export default function Settings() {
           {tab === 'notifications' && <NotificationsTab />}
           {tab === 'api' && <ApiKeysTab />}
           {tab === 'team' && isAdmin && <TeamTab currentUserId={user?.id} />}
+          {tab === 'model' && isAdmin && <ModelTab />}
         </div>
       </div>
     </div>
@@ -458,6 +460,123 @@ function TempPasswordModal({ creds, onClose }) {
         </div>
       </div>
     </div>
+  )
+}
+
+// ------------------------------------------------------------------ //
+// Model (admin only) — view active model metrics, trigger a retrain
+// ------------------------------------------------------------------ //
+function ModelTab() {
+  const [status, setStatus] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [triggering, setTriggering] = useState(false)
+
+  const loadStatus = useCallback(() => {
+    fraudApi
+      .getModelStatus()
+      .then(({ data }) => setStatus(data))
+      .catch((err) => toast.error(getApiErrorMessage(err, 'Failed to load model status')))
+      .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    loadStatus()
+  }, [loadStatus])
+
+  // Poll while a retrain is running so the page updates itself once it
+  // finishes, without the admin needing to manually refresh.
+  useEffect(() => {
+    if (!status?.training_in_progress) return
+    const interval = setInterval(loadStatus, 5000)
+    return () => clearInterval(interval)
+  }, [status?.training_in_progress, loadStatus])
+
+  const handleRetrain = async () => {
+    setTriggering(true)
+    try {
+      const { data } = await fraudApi.triggerRetrain()
+      toast.success(data.message)
+      loadStatus()
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Failed to start retraining'))
+    } finally {
+      setTriggering(false)
+    }
+  }
+
+  const m = status?.active_model
+
+  return (
+    <GlassCard hover={false}>
+      <div className="mb-5 flex items-center justify-between">
+        <h3 className="font-display text-base font-semibold">Model</h3>
+        <button
+          onClick={handleRetrain}
+          disabled={triggering || status?.training_in_progress}
+          className="btn-primary flex items-center gap-1.5 text-xs disabled:opacity-50"
+        >
+          <RefreshCw size={14} className={status?.training_in_progress ? 'animate-spin' : ''} />
+          {status?.training_in_progress ? 'Training…' : 'Retrain Model'}
+        </button>
+      </div>
+
+      {status?.training_in_progress && (
+        <div className="mb-5 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 text-sm text-white/70">
+          A training run is in progress in the background — this page checks for updates automatically every few seconds.
+        </div>
+      )}
+
+      {status?.last_training_error && !status.training_in_progress && (
+        <div className="mb-5 rounded-xl border border-danger/25 bg-danger/5 px-4 py-3 text-sm text-danger">
+          Last retrain attempt failed: {status.last_training_error}
+        </div>
+      )}
+
+      {loading ? (
+        <p className="py-8 text-center text-xs text-white/30">Loading…</p>
+      ) : !m ? (
+        <p className="py-8 text-center text-sm text-white/40">
+          No model is currently registered as active. Run a retrain, or see the backend README for registering an
+          already-trained model.
+        </p>
+      ) : (
+        <>
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+            <div>
+              <p className="text-xs text-white/40">Active Version</p>
+              <p className="font-display text-lg font-semibold">
+                {m.version} <span className="text-sm font-normal capitalize text-white/40">({m.algorithm})</span>
+              </p>
+            </div>
+            <div className="text-right text-xs text-white/40">
+              <p>Trained {new Date(m.training_date).toLocaleString('en-IN')}</p>
+              <p>{m.dataset_row_count.toLocaleString()} rows</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {[
+              { label: 'Accuracy', value: m.accuracy },
+              { label: 'Precision', value: m.precision },
+              { label: 'Recall', value: m.recall },
+              { label: 'F1 Score', value: m.f1_score },
+              { label: 'ROC-AUC', value: m.roc_auc },
+              { label: 'PR-AUC', value: m.pr_auc },
+            ].map(({ label, value }) => (
+              <div key={label} className="rounded-xl border border-white/10 bg-white/[0.02] p-3.5">
+                <p className="text-[11px] text-white/40">{label}</p>
+                <p className="font-display text-lg font-semibold text-white/90">{(value * 100).toFixed(2)}%</p>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      <p className="mt-5 border-t border-white/10 pt-4 text-xs text-white/30">
+        Retraining runs in quick mode (fixed hyperparameters, no grid search) so it finishes in a reasonable
+        window on the live server. It replaces the active model and deactivates the previous one automatically.
+      </p>
+    </GlassCard>
   )
 }
 

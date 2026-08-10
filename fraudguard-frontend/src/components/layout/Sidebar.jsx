@@ -6,13 +6,16 @@ import {
   Radar,
   BarChart3,
   BrainCircuit,
+  Activity,
   FileText,
   Settings,
   UserCircle,
   ShieldCheck,
+  ClipboardList,
   X,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { useAuth } from '../../context/AuthContext'
 
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -20,7 +23,9 @@ const NAV_ITEMS = [
   { to: '/live-monitoring', label: 'Live Monitoring', icon: Radar },
   { to: '/fraud-analytics', label: 'Fraud Analytics', icon: BarChart3 },
   { to: '/explainability', label: 'Explainability', icon: BrainCircuit },
+  { to: '/drift', label: 'Drift Monitoring', icon: Activity },
   { to: '/reports', label: 'Reports', icon: FileText },
+  { to: '/audit-log', label: 'Audit Trail', icon: ClipboardList, adminOnly: true },
 ]
 
 const BOTTOM_ITEMS = [
@@ -29,6 +34,10 @@ const BOTTOM_ITEMS = [
 ]
 
 export default function Sidebar({ open, onClose }) {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
+  const navItems = NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin)
+
   return (
     <>
       {open && (
@@ -59,7 +68,7 @@ export default function Sidebar({ open, onClose }) {
           <p className="px-3.5 pb-1.5 pt-3 text-[11px] font-semibold uppercase tracking-wider text-white/25">
             Monitor
           </p>
-          {NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

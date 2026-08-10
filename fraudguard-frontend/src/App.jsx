@@ -13,9 +13,11 @@ import Transactions from './pages/Transactions'
 import LiveMonitoring from './pages/LiveMonitoring'
 import FraudAnalytics from './pages/FraudAnalytics'
 import Explainability from './pages/Explainability'
+import Drift from './pages/Drift'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import Profile from './pages/Profile'
+import AuditLog from './pages/AuditLog'
 
 export default function App() {
   return (
@@ -55,9 +57,11 @@ export default function App() {
             <Route path="/live-monitoring" element={<LiveMonitoring />} />
             <Route path="/fraud-analytics" element={<FraudAnalytics />} />
             <Route path="/explainability" element={<Explainability />} />
+            <Route path="/drift" element={<Drift />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/audit-log" element={<AuditLog />} />
           </Route>
         </Routes>
       </BrowserRouter>

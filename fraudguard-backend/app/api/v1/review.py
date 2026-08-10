@@ -2,6 +2,7 @@
 Manual review workflow endpoints:
 
     GET  /review-queue              — list, filterable by status
+    GET  /review-queue/audit-log    — admin-only: every resolved review, all analysts (compliance/forensics view)
     GET  /review-queue/{id}         — full detail
     POST /review-queue/{id}/claim   — an analyst claims it (optional step)
     POST /review-queue/{id}/resolve — analyst records fraud/legitimate ground truth
@@ -37,6 +38,27 @@ def list_reviews(
     current_user: User = Depends(require_role(*_ANY_ROLE)),
 ) -> ReviewListResponse:
     return ReviewService(db).list_reviews(page=page, page_size=page_size, status=status)
+
+
+@router.get(
+    "/audit-log",
+    response_model=ReviewListResponse,
+    summary="Admin-only: every resolved review across every analyst (compliance/forensics view)",
+    description=(
+        "Registered BEFORE /{review_id} deliberately — Starlette matches routes by "
+        "path structure before FastAPI validates the {review_id}: UUID type, so if "
+        "this route were registered after /{review_id}, a request to this exact path "
+        "would incorrectly match /{review_id} first and 422 (since 'audit-log' isn't "
+        "a valid UUID) instead of ever reaching this handler."
+    ),
+)
+def audit_log(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+) -> ReviewListResponse:
+    return ReviewService(db).list_audit_log(page=page, page_size=page_size)
 
 
 @router.get(
