@@ -601,7 +601,7 @@ function ToggleRow({ title, desc, on = false, onChange, disabled = false, coming
           on ? 'bg-primary' : 'bg-white/10'
         )}
       >
-        <span className={cn('absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform', on ? 'translate-x-5' : 'translate-x-0.5')} />
+        <span className={cn('absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform', on ? 'translate-x-5' : 'translate-x-0')} />
       </button>
     </div>
   )
