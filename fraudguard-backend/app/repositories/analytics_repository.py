@@ -125,7 +125,15 @@ class AnalyticsRepository:
         return {"labels": labels, "values": values}
 
     def heatmap_by_day_hour(self) -> dict:
-        """Fraud (is_fraud=True) event counts by weekday x 4-hour block, over all history."""
+        """Fraud (is_fraud=True) event counts by weekday x 4-hour block, over all history.
+
+        Cell values are normalized to 0-100, scaled relative to the busiest
+        cell in the grid (max count -> 100), not raw counts. The frontend's
+        intensityColor() buckets on a 0-100 scale (Low/Medium/High/Critical),
+        so shipping raw counts here meant almost every cell landed under the
+        "Low" threshold regardless of actual relative risk — the heatmap
+        rendered as a single flat color no matter what the data showed.
+        """
         stmt = (
             select(
                 func.extract("dow", FraudPrediction.created_at).label("dow"),  # 0=Sunday..6=Saturday
@@ -152,8 +160,14 @@ class AnalyticsRepository:
             block_index = min(hour // 4, len(hour_blocks) - 1)
             grid[label_index][block_index] += count
 
+        max_count = max((c for row in grid for c in row), default=0)
+        if max_count > 0:
+            normalized = [[round(c / max_count * 100) for c in row] for row in grid]
+        else:
+            normalized = grid  # all zero, nothing to scale
+
         return {
-            "rows": [{"day": day_labels[i], "values": grid[i]} for i in range(len(day_labels))],
+            "rows": [{"day": day_labels[i], "values": normalized[i]} for i in range(len(day_labels))],
             "hours": [f"{h:02d}:00" for h in hour_blocks],
         }
 
