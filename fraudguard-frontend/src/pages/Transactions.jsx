@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Search, SlidersHorizontal, Download } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageHeader from '../components/ui/PageHeader'
@@ -17,9 +18,12 @@ const FILTERS = [
 ]
 
 export default function Transactions() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [selectedId, setSelectedId] = useState(null)
   const [selected, setSelected] = useState(null)
-  const [query, setQuery] = useState('')
+  // Seeded from ?q= so the Topbar's global search can deep-link straight
+  // into a filtered result set here (there's no separate search results page).
+  const [query, setQuery] = useState(() => searchParams.get('q') || '')
   const [filter, setFilter] = useState('all')
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
@@ -37,6 +41,12 @@ export default function Transactions() {
       setExporting(false)
     }
   }
+
+  // Keep the URL's ?q= in sync with the search box so the current search is
+  // shareable/bookmarkable and survives a refresh.
+  useEffect(() => {
+    setSearchParams(query ? { q: query } : {}, { replace: true })
+  }, [query]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     let cancelled = false

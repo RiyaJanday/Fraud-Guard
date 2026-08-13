@@ -125,6 +125,8 @@ export const fraudApi = {
   getMyStats: () => api.get('/auth/me/stats'),
   getMyActivity: () => api.get('/auth/me/activity'),
   logout: (refreshToken) => api.post('/auth/logout', refreshToken ? { refresh_token: refreshToken } : {}),
+  forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
+  resetPassword: (token, newPassword) => api.post('/auth/reset-password', { token, new_password: newPassword }),
 
   // --- User management (admin) -------------------------------------------
   listUsers: (params) => api.get('/users', { params }),

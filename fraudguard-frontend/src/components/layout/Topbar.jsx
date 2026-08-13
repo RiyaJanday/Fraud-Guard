@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Menu, Search, Bell, ChevronDown, LogOut, Settings, UserCircle, CheckCheck } from 'lucide-react'
+import { Menu, Search, X, Bell, ChevronDown, LogOut, Settings, UserCircle, CheckCheck } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../context/AuthContext'
@@ -9,11 +9,35 @@ import { timeAgo } from '../../lib/transform'
 export default function Topbar({ onMenuClick }) {
   const [notifOpen, setNotifOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [searchValue, setSearchValue] = useState('')
   const { user, logout } = useAuth()
   const { notifications, unreadCount, connected, markRead, markAllRead } = useNotifications()
   const navigate = useNavigate()
   const notifRef = useRef(null)
   const profileRef = useRef(null)
+  const searchRef = useRef(null)
+
+  // Global search only covers transactions today (that's the only entity
+  // with a working search endpoint) — routes into Transactions' own search
+  // box via ?q= rather than duplicating filtering logic here.
+  function submitSearch(e) {
+    e.preventDefault()
+    const trimmed = searchValue.trim()
+    if (!trimmed) return
+    navigate(`/transactions?q=${encodeURIComponent(trimmed)}`)
+  }
+
+  // ⌘K / Ctrl+K focuses the search box, matching the visible kbd hint.
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        searchRef.current?.focus()
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -30,14 +54,26 @@ export default function Topbar({ onMenuClick }) {
         <Menu size={22} />
       </button>
 
-      <div className="hidden flex-1 max-w-md items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2 sm:flex">
+      <form
+        onSubmit={submitSearch}
+        className="hidden flex-1 max-w-md items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2 sm:flex"
+      >
         <Search size={16} className="text-white/30" />
         <input
-          placeholder="Search transactions, alerts, customers..."
+          ref={searchRef}
+          value={searchValue}
+          onChange={(e) => setSearchValue(e.target.value)}
+          placeholder="Search transactions by merchant..."
           className="w-full bg-transparent text-sm text-white placeholder:text-white/30 outline-none"
         />
-        <kbd className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] text-white/30">⌘K</kbd>
-      </div>
+        {searchValue ? (
+          <button type="button" onClick={() => setSearchValue('')} className="text-white/30 hover:text-white/60">
+            <X size={14} />
+          </button>
+        ) : (
+          <kbd className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] text-white/30">⌘K</kbd>
+        )}
+      </form>
 
       <div className="ml-auto flex items-center gap-2 sm:gap-3">
         <div

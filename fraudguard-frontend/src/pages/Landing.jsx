@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import AnimatedNumber from '../components/ui/AnimatedNumber'
 import {
   ShieldCheck, ArrowRight, Zap, BrainCircuit, Radar, Lock,
-  BarChart3, Sparkles, CheckCircle2, Globe, MessageCircle, Link2,
+  BarChart3, Sparkles, CheckCircle2,
 } from 'lucide-react'
 import GradientBlobs from '../components/ui/GradientBlobs'
 import RiskGauge from '../components/ui/RiskGauge'
@@ -241,11 +241,9 @@ export default function Landing() {
           <div className="flex items-center gap-2 text-sm text-white/40">
             <ShieldCheck size={16} className="text-primary" /> FraudGuard © 2026. All rights reserved.
           </div>
-          <div className="flex items-center gap-4 text-white/30">
-            <Globe size={16} className="hover:text-white" />
-            <MessageCircle size={16} className="hover:text-white" />
-            <Link2 size={16} className="hover:text-white" />
-          </div>
+          {/* Social icons removed: no real destinations exist for them yet
+              (no GitHub/Twitter/Discord presence). Add back with real hrefs
+              once those exist — dead icon links are worse than no icons. */}
         </div>
       </footer>
     </div>

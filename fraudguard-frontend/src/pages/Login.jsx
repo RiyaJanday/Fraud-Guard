@@ -59,7 +59,6 @@ export default function Login() {
                 <Mail size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
                 <input
                   {...register('email')}
-                  defaultValue="aarav.mehta@fraudguard.ai"
                   placeholder="you@company.com"
                   className="input-glass pl-10"
                 />
@@ -70,14 +69,13 @@ export default function Login() {
             <div>
               <div className="mb-1.5 flex items-center justify-between">
                 <label className="block text-xs font-medium text-white/50">Password</label>
-                <a href="#" className="text-xs text-primary/80 hover:text-primary">Forgot password?</a>
+                <Link to="/forgot-password" className="text-xs text-primary/80 hover:text-primary">Forgot password?</Link>
               </div>
               <div className="relative">
                 <Lock size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
                 <input
                   {...register('password')}
                   type={showPassword ? 'text' : 'password'}
-                  defaultValue="fraudguard123"
                   placeholder="••••••••"
                   className="input-glass pl-10 pr-10"
                 />
@@ -97,16 +95,8 @@ export default function Login() {
             </button>
           </form>
 
-          <div className="mt-6 flex items-center gap-3">
-            <div className="h-px flex-1 bg-white/10" />
-            <span className="text-xs text-white/30">or continue with</span>
-            <div className="h-px flex-1 bg-white/10" />
-          </div>
-
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <button className="btn-ghost text-sm">Google</button>
-            <button className="btn-ghost text-sm">SSO / SAML</button>
-          </div>
+          {/* Google / SSO sign-in removed: no OAuth backend is wired up yet.
+              Re-add this block once /auth/google or /auth/saml exist server-side. */}
         </div>
 
         <p className="mt-6 text-center text-sm text-white/40">

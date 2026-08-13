@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
-import { ShieldCheck, Mail, Lock, User, Building2, Eye, EyeOff, ArrowRight, CheckCircle2 } from 'lucide-react'
+import { ShieldCheck, Mail, Lock, User, Eye, EyeOff, ArrowRight, CheckCircle2 } from 'lucide-react'
 import GradientBlobs from '../components/ui/GradientBlobs'
 import { useAuth } from '../context/AuthContext'
 import { getApiErrorMessage } from '../lib/api'
@@ -13,7 +13,6 @@ import { getApiErrorMessage } from '../lib/api'
 const schema = z
   .object({
     name: z.string().min(2, 'Enter your full name'),
-    org: z.string().min(2, 'Organization is required'),
     email: z.string().email('Enter a valid email address'),
     password: z
       .string()
@@ -75,30 +74,23 @@ export default function Register() {
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-white/50">Full Name</label>
-                <div className="relative">
-                  <User size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
-                  <input {...register('name')} defaultValue="Aarav Mehta" placeholder="Jane Doe" className="input-glass pl-10" />
-                </div>
-                {errors.name && <p className="mt-1 text-xs text-danger">{errors.name.message}</p>}
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-white/50">Full Name</label>
+              <div className="relative">
+                <User size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
+                <input {...register('name')} placeholder="Jane Doe" className="input-glass pl-10" />
               </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-white/50">Organization</label>
-                <div className="relative">
-                  <Building2 size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
-                  <input {...register('org')} defaultValue="NovaBank" placeholder="Acme Inc." className="input-glass pl-10" />
-                </div>
-                {errors.org && <p className="mt-1 text-xs text-danger">{errors.org.message}</p>}
-              </div>
+              {errors.name && <p className="mt-1 text-xs text-danger">{errors.name.message}</p>}
             </div>
+            {/* Organization field removed: the backend has no org field yet,
+                so collecting it here was silently discarding user input.
+                Re-add once the backend supports org on register. */}
 
             <div>
               <label className="mb-1.5 block text-xs font-medium text-white/50">Work Email</label>
               <div className="relative">
                 <Mail size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
-                <input {...register('email')} defaultValue="aarav.mehta@fraudguard.ai" placeholder="you@company.com" className="input-glass pl-10" />
+                <input {...register('email')} placeholder="you@company.com" className="input-glass pl-10" />
               </div>
               {errors.email && <p className="mt-1 text-xs text-danger">{errors.email.message}</p>}
             </div>
@@ -111,7 +103,6 @@ export default function Register() {
                   <input
                     {...register('password')}
                     type={showPassword ? 'text' : 'password'}
-                    defaultValue="fraudguard123"
                     placeholder="••••••••"
                     className="input-glass pl-10 pr-10"
                   />
@@ -128,7 +119,6 @@ export default function Register() {
                   <input
                     {...register('confirmPassword')}
                     type={showPassword ? 'text' : 'password'}
-                    defaultValue="fraudguard123"
                     placeholder="••••••••"
                     className="input-glass pl-10"
                   />
