@@ -18,6 +18,7 @@ from app.models.review import AnalystDecision, ReviewQueue, ReviewStatus
 from app.models.notification import Notification, NotificationType
 from app.models.audit_log import AuditLog
 from app.models.model_metrics import ModelMetrics
+from app.models.rule import Rule, RuleAction, RuleField, RuleOperator
 
 __all__ = [
     "User",
@@ -37,4 +38,8 @@ __all__ = [
     "NotificationType",
     "AuditLog",
     "ModelMetrics",
+    "Rule",
+    "RuleAction",
+    "RuleField",
+    "RuleOperator",
 ]

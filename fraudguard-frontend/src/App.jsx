@@ -20,6 +20,9 @@ import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import Profile from './pages/Profile'
 import AuditLog from './pages/AuditLog'
+import ReviewQueue from './pages/ReviewQueue'
+import Rules from './pages/Rules'
+import ModelRegistry from './pages/ModelRegistry'
 
 export default function App() {
   return (
@@ -66,6 +69,9 @@ export default function App() {
             <Route path="/settings" element={<Settings />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/audit-log" element={<AuditLog />} />
+            <Route path="/review-queue" element={<ReviewQueue />} />
+            <Route path="/rules" element={<Rules />} />
+            <Route path="/model-registry" element={<ModelRegistry />} />
           </Route>
         </Routes>
       </BrowserRouter>

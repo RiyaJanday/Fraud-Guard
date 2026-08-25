@@ -89,3 +89,16 @@ class TransactionRepository:
         )
         rows = self.db.execute(stmt).all()
         return [{**v_features, "Amount": amount} for v_features, amount in rows]
+
+    def list_recent(self, limit: int = 200) -> list[Transaction]:
+        """Most recent transactions, prediction eager-loaded — used by
+        RuleService.preview_rule to test a proposed rule against real
+        historical traffic before it's saved."""
+        stmt = (
+            select(Transaction)
+            .outerjoin(Transaction.prediction)
+            .options(contains_eager(Transaction.prediction))
+            .order_by(Transaction.created_at.desc())
+            .limit(limit)
+        )
+        return list(self.db.execute(stmt).unique().scalars().all())

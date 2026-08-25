@@ -35,7 +35,9 @@ from app.repositories.fraud_log_repository import FraudLogRepository
 from app.repositories.fraud_prediction_repository import FraudPredictionRepository
 from app.repositories.model_registry_repository import ModelRegistryRepository
 from app.repositories.review_repository import ReviewRepository
+from app.repositories.rule_repository import RuleRepository
 from app.repositories.transaction_repository import TransactionRepository
+from app.schemas.rule import TriggeredRuleOut
 from app.schemas.transaction import (
     FraudLogOut,
     FraudPredictionOut,
@@ -47,6 +49,8 @@ from app.schemas.transaction import (
 )
 from app.services.notification_service import NotificationService
 from app.services.review_service import ReviewService
+from app.services.rule_engine import evaluate_rules, strongest_action
+from app.models.rule import RuleAction
 
 
 class TransactionService:
@@ -59,6 +63,7 @@ class TransactionService:
         self.review_repo = ReviewRepository(db)
         self.reviews = ReviewService(db)
         self.notifications = NotificationService(db)
+        self.rules = RuleRepository(db)
 
     # ------------------------------------------------------------------ #
     # Submission / scoring pipeline
@@ -121,6 +126,49 @@ class TransactionService:
             f"Decision: {result['decision'].value} (risk score {result['risk_score']}).",
         )
 
+        # Business rules run alongside the ML model, not instead of it — see
+        # app/services/rule_engine.py. Evaluated against the raw submission
+        # fields (never the model's own output), so a rule match is never
+        # contingent on the model being right. If any matched rule's action
+        # is stronger than the model's own decision, it overrides — this is
+        # deliberate: rules encode hard business/compliance policy an admin
+        # configured explicitly, which should not be silently dominated by
+        # model confidence.
+        active_rules = self.rules.list_all(enabled_only=True)
+        transaction_fields = {
+            "amount": transaction.amount,
+            "currency": transaction.currency,
+            "merchant": transaction.merchant,
+            "customer_reference": transaction.customer_reference,
+            "card_last4": transaction.card_last4,
+            "device_info": transaction.device_info,
+            "ip_address": transaction.ip_address,
+            "location": transaction.location,
+            "time_feature": transaction.time_feature,
+        }
+        matched_rules = evaluate_rules(active_rules, transaction_fields)
+        triggered_rules_out = [
+            TriggeredRuleOut(
+                rule_id=r.id, name=r.name, field=r.field, operator=r.operator, value=r.value, action=r.action,
+            )
+            for r in matched_rules
+        ]
+
+        rule_action = strongest_action(matched_rules)
+        if rule_action == RuleAction.BLOCK:
+            result["decision"] = Decision.BLOCKED
+        elif rule_action == RuleAction.FLAG and result["decision"] == Decision.APPROVE:
+            result["decision"] = Decision.MFA_REQUIRED
+
+        if matched_rules:
+            self.logs.create(
+                transaction.id,
+                PipelineStage.DECISION,
+                LogStatus.SUCCESS,
+                f"{len(matched_rules)} business rule(s) matched — "
+                f"{', '.join(r.name for r in matched_rules)} → final decision {result['decision'].value}.",
+            )
+
         # Stage 7: Save Database
         active_model = self.model_registry.get_active()
         prediction = FraudPrediction(
@@ -135,6 +183,7 @@ class TransactionService:
             latency_ms=result["latency_ms"],
             top_shap_features=result["top_shap_features"],
             explanation=result["explanation"],
+            triggered_rules=[t.model_dump(mode="json") for t in triggered_rules_out],
         )
         prediction = self.predictions.create(prediction)
         self.logs.create(

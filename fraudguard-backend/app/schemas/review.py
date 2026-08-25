@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.fraud_prediction import Decision
 from app.models.review import AnalystDecision, ReviewStatus
+from app.schemas.rule import TriggeredRuleOut
 from app.schemas.transaction import ShapFeatureOut
 
 
@@ -40,6 +41,7 @@ class ReviewQueueOut(BaseModel):
     fraud_probability: float
     decision: Decision
     explanation: str
+    triggered_rules: List[TriggeredRuleOut] = Field(default_factory=list)
 
 
 class ReviewQueueDetailOut(ReviewQueueOut):

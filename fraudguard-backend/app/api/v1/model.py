@@ -11,6 +11,8 @@ reasonable window on Render's free-tier CPU. If you want the full search,
 run train_model.py directly and it registers the result the same way.
 """
 
+from typing import List
+
 from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy.orm import Session
 
@@ -18,7 +20,7 @@ from app.core.security import require_role
 from app.database.session import get_db
 from app.models.user import User, UserRole
 from app.repositories.model_registry_repository import ModelRegistryRepository
-from app.schemas.model import ActiveModelOut, ModelStatusOut, RetrainTriggerResponse
+from app.schemas.model import ActiveModelOut, ModelStatusOut, ModelVersionOut, RetrainTriggerResponse
 from app.services import training_service
 
 router = APIRouter()
@@ -42,6 +44,37 @@ def get_model_status(
         training_finished_at=status["finished_at"],
         last_training_error=status["last_error"],
     )
+
+
+@router.get(
+    "/versions",
+    response_model=List[ModelVersionOut],
+    summary="Full history of every trained model version, most recent first",
+)
+def list_model_versions(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN, UserRole.ANALYST, UserRole.AUDITOR)),
+) -> List[ModelVersionOut]:
+    versions = ModelRegistryRepository(db).list_all()
+    return [
+        ModelVersionOut(
+            id=str(v.id),
+            version=v.version,
+            algorithm=v.algorithm,
+            status=v.status.value,
+            accuracy=v.accuracy,
+            precision=v.precision,
+            recall=v.recall,
+            f1_score=v.f1_score,
+            roc_auc=v.roc_auc,
+            pr_auc=v.pr_auc,
+            training_date=v.training_date,
+            dataset_name=v.dataset_name,
+            dataset_row_count=v.dataset_row_count,
+            notes=v.notes,
+        )
+        for v in versions
+    ]
 
 
 @router.post(

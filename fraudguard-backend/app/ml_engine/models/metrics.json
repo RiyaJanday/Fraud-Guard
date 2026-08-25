@@ -1,5 +1,5 @@
 {
-  "model_version": "v20260726011404",
+  "model_version": "v20260825033705",
   "algorithm": "xgboost",
   "feature_columns": [
     "V1",
@@ -34,8 +34,8 @@
     "Amount_log",
     "Hour"
   ],
-  "trained_at": "2026-07-26T01:14:04.006981+00:00",
-  "training_duration_seconds": 51.9,
+  "trained_at": "2026-08-25T03:37:05.552682+00:00",
+  "training_duration_seconds": 76.0,
   "quick_mode": true,
   "dataset_analysis": {
     "total_transactions": 284807,

@@ -1,25 +1,27 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
-import { CreditCard, Coins } from 'lucide-react'
+import { CreditCard, Coins, Radio } from 'lucide-react'
 import PageHeader from '../components/ui/PageHeader'
 import GlassCard from '../components/ui/GlassCard'
 import VolumeLineChart from '../components/charts/VolumeLineChart'
 import FraudDoughnutChart from '../components/charts/FraudDoughnutChart'
 import RiskAreaChart from '../components/charts/RiskAreaChart'
 import FraudHeatmap from '../components/charts/FraudHeatmap'
-import { fraudApi } from '../lib/api'
+import { fraudApi, getAccessToken, getNotificationsWebSocketUrl } from '../lib/api'
 import { mapAnalytics } from '../lib/transform'
+import { cn } from '../lib/utils'
 
 export default function FraudAnalytics() {
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState(null)
+  const [connected, setConnected] = useState(false)
+  const refreshTimer = useRef(null)
 
-  useEffect(() => {
-    let cancelled = false
-    fraudApi
+  function loadAnalytics({ silent = false } = {}) {
+    if (!silent) setLoading(true)
+    return fraudApi
       .getAnalytics()
       .then(({ data: res }) => {
-        if (cancelled) return
         const mapped = mapAnalytics(res)
         const currencyTotal = mapped.currencyBreakdown.reduce((sum, c) => sum + c.total, 0)
         mapped.currencyBreakdown = mapped.currencyBreakdown.map((c) => ({
@@ -28,9 +30,60 @@ export default function FraudAnalytics() {
         }))
         setData(mapped)
       })
-      .catch(() => !cancelled && toast.error('Could not load analytics from the backend'))
-      .finally(() => !cancelled && setLoading(false))
-    return () => { cancelled = true }
+      .catch(() => !silent && toast.error('Could not load analytics from the backend'))
+      .finally(() => !silent && setLoading(false))
+  }
+
+  useEffect(() => {
+    loadAnalytics()
+  }, [])
+
+  // Live updates: every scored transaction is broadcast over the same
+  // WebSocket channel Live Monitoring listens on. A fraud-relevant event
+  // (is_fraud, or anything the model/rules didn't outright approve) means
+  // the heatmap/volume/distribution charts are now stale, so we debounce a
+  // real refetch rather than trying to hand-patch every chart's aggregate
+  // math on the client for one new data point.
+  useEffect(() => {
+    let cancelled = false
+    let reconnectTimer
+    let ws
+
+    function scheduleRefresh() {
+      clearTimeout(refreshTimer.current)
+      refreshTimer.current = setTimeout(() => loadAnalytics({ silent: true }), 1500)
+    }
+
+    function connect() {
+      const token = getAccessToken()
+      if (!token || cancelled) return
+      ws = new WebSocket(getNotificationsWebSocketUrl(token))
+
+      ws.onopen = () => setConnected(true)
+      ws.onclose = () => {
+        setConnected(false)
+        if (!cancelled) reconnectTimer = setTimeout(connect, 3000)
+      }
+      ws.onerror = () => ws.close()
+      ws.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data)
+          if (payload.event === 'transaction_scored' && payload.transaction) {
+            scheduleRefresh()
+          }
+        } catch {
+          // ignore malformed frames
+        }
+      }
+    }
+
+    connect()
+    return () => {
+      cancelled = true
+      clearTimeout(reconnectTimer)
+      clearTimeout(refreshTimer.current)
+      ws?.close()
+    }
   }, [])
 
   if (loading || !data) {
@@ -47,6 +100,16 @@ export default function FraudAnalytics() {
         eyebrow="Insights"
         title="Fraud Analytics"
         subtitle="Deep-dive into real decision patterns, merchant risk, and currency exposure."
+        actions={
+          <span className="flex items-center gap-2 text-xs text-white/40">
+            <span className="relative flex h-2 w-2">
+              {connected && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />}
+              <span className={cn('relative inline-flex h-2 w-2 rounded-full', connected ? 'bg-success' : 'bg-white/30')} />
+            </span>
+            <Radio size={13} className={connected ? 'text-success' : 'text-white/30'} />
+            {connected ? 'Live' : 'Reconnecting\u2026'}
+          </span>
+        }
       />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">

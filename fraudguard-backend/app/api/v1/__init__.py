@@ -10,7 +10,7 @@ groups are added.
 
 from fastapi import APIRouter
 
-from app.api.v1 import analytics, auth, dashboard, drift, explainability, health, model, notifications, prediction, reports, review, transactions, users, ws
+from app.api.v1 import analytics, auth, dashboard, drift, explainability, health, model, notifications, prediction, reports, review, rules, transactions, users, ws
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -20,6 +20,7 @@ api_router.include_router(users.router, prefix="/users", tags=["User Management"
 api_router.include_router(prediction.router, tags=["Prediction"])
 api_router.include_router(transactions.router, prefix="/transactions", tags=["Transactions"])
 api_router.include_router(review.router, prefix="/review-queue", tags=["Manual Review"])
+api_router.include_router(rules.router, prefix="/rules", tags=["Rules Engine"])
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
 api_router.include_router(drift.router, prefix="/drift", tags=["Drift Detection"])

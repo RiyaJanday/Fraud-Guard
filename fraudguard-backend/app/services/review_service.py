@@ -41,6 +41,7 @@ from app.schemas.review import (
     ReviewQueueOut,
     ReviewResolveRequest,
 )
+from app.schemas.rule import TriggeredRuleOut
 from app.schemas.transaction import ShapFeatureOut
 from app.schemas.user import ProfileActivityItemOut, ProfileStatsOut
 
@@ -161,6 +162,7 @@ class ReviewService:
             fraud_probability=pred.fraud_probability,
             decision=pred.decision,
             explanation=pred.explanation,
+            triggered_rules=[TriggeredRuleOut(**t) for t in (pred.triggered_rules or [])],
         )
 
     def _to_detail_out(self, review: ReviewQueue) -> ReviewQueueDetailOut:

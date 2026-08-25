@@ -21,6 +21,25 @@ class ActiveModelOut(BaseModel):
     dataset_row_count: int
 
 
+class ModelVersionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    version: str
+    algorithm: str
+    status: str
+    accuracy: Optional[float] = None
+    precision: Optional[float] = None
+    recall: Optional[float] = None
+    f1_score: Optional[float] = None
+    roc_auc: Optional[float] = None
+    pr_auc: Optional[float] = None
+    training_date: Optional[datetime] = None
+    dataset_name: str
+    dataset_row_count: Optional[int] = None
+    notes: Optional[str] = None
+
+
 class ModelStatusOut(BaseModel):
     active_model: Optional[ActiveModelOut] = None
     training_in_progress: bool

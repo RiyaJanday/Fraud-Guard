@@ -156,15 +156,25 @@ export const fraudApi = {
   exportTransactionsCsv: (params) => api.get('/reports/transactions.csv', { params, responseType: 'blob' }),
 
   // --- Manual review queue ----------------------------------------------
+  listReviewQueue: (params) => api.get('/review-queue', { params }),
+  getReview: (reviewId) => api.get(`/review-queue/${reviewId}`),
   claimReview: (reviewId) => api.post(`/review-queue/${reviewId}/claim`),
   resolveReview: (reviewId, payload) => api.post(`/review-queue/${reviewId}/resolve`, payload),
   getAuditLog: (params) => api.get('/review-queue/audit-log', { params }),
+
+  // --- Business rules engine ----------------------------------------------
+  listRules: () => api.get('/rules'),
+  previewRule: (payload) => api.post('/rules/preview', payload),
+  createRule: (payload) => api.post('/rules', payload),
+  updateRule: (id, payload) => api.patch(`/rules/${id}`, payload),
+  deleteRule: (id) => api.delete(`/rules/${id}`),
 
   // --- Drift detection ----------------------------------------------------
   getDriftReport: () => api.get('/drift'),
 
   // --- Model (admin retraining) --------------------------------------------
   getModelStatus: () => api.get('/model/status'),
+  getModelVersions: () => api.get('/model/versions'),
   triggerRetrain: () => api.post('/model/retrain'),
 
   // --- Notifications ------------------------------------------------------

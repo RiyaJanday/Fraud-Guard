@@ -127,17 +127,29 @@ class AnalyticsRepository:
     def heatmap_by_day_hour(self) -> dict:
         """Fraud (is_fraud=True) event counts by weekday x 4-hour block, over all history.
 
+        Bucketed in IST (Asia/Kolkata), not whatever timezone the Postgres
+        session happens to be in. created_at is always stored in UTC (see
+        TimestampMixin) -- EXTRACT(dow/hour FROM a timestamptz) implicitly
+        converts to the CONNECTION's `TimeZone` setting first, which is not
+        guaranteed to be UTC and is NOT the same as the user's local time
+        either. Left implicit, the day/hour a fraud event lands in here can
+        silently disagree with when it actually happened locally -- exactly
+        the "heatmap timing looks wrong" symptom. Every other page in this
+        app formats timestamps in en-IN, so this bucket boundary should match
+        that same real-world clock, not an arbitrary session default.
+
         Cell values are normalized to 0-100, scaled relative to the busiest
         cell in the grid (max count -> 100), not raw counts. The frontend's
         intensityColor() buckets on a 0-100 scale (Low/Medium/High/Critical),
         so shipping raw counts here meant almost every cell landed under the
-        "Low" threshold regardless of actual relative risk — the heatmap
+        "Low" threshold regardless of actual relative risk -- the heatmap
         rendered as a single flat color no matter what the data showed.
         """
+        local_created_at = func.timezone("Asia/Kolkata", FraudPrediction.created_at)
         stmt = (
             select(
-                func.extract("dow", FraudPrediction.created_at).label("dow"),  # 0=Sunday..6=Saturday
-                func.extract("hour", FraudPrediction.created_at).label("hour"),
+                func.extract("dow", local_created_at).label("dow"),  # 0=Sunday..6=Saturday
+                func.extract("hour", local_created_at).label("hour"),
                 func.count(),
             )
             .where(FraudPrediction.is_fraud.is_(True))

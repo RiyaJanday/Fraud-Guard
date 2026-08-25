@@ -17,6 +17,7 @@ admin, who would notice and just retrigger it.
 """
 
 import json
+import math
 import threading
 import time
 from datetime import datetime, timezone
@@ -207,7 +208,11 @@ def run_training(quick: bool = True) -> dict:
         hyperparameters = None
         if hasattr(best_model, "get_params"):
             try:
-                hyperparameters = {k: v for k, v in best_model.get_params().items() if v is None or isinstance(v, (str, int, float, bool))}
+                hyperparameters = {
+                    k: (None if isinstance(v, float) and not math.isfinite(v) else v)
+                    for k, v in best_model.get_params().items()
+                    if v is None or isinstance(v, (str, int, float, bool))
+                }
             except Exception:  # noqa: BLE001
                 hyperparameters = None
 

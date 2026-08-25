@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from app.models.fraud_log import LogStatus, PipelineStage
 from app.models.fraud_prediction import Decision
 from app.models.review import AnalystDecision, ReviewStatus
+from app.schemas.rule import TriggeredRuleOut
 
 
 class TransactionCreate(BaseModel):
@@ -62,6 +63,7 @@ class FraudPredictionOut(BaseModel):
     latency_ms: float
     top_shap_features: List[ShapFeatureOut]
     explanation: str
+    triggered_rules: List[TriggeredRuleOut] = Field(default_factory=list)
     created_at: datetime
 
 

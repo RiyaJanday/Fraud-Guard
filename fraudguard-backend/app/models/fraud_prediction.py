@@ -66,6 +66,11 @@ class FraudPrediction(UUIDMixin, TimestampMixin, Base):
         comment='[{"feature": "V17", "impact": 0.31, "value": -3.2}, ...] ordered by |impact| desc',
     )
     explanation: Mapped[str] = mapped_column(Text, nullable=False, comment="Natural-language SHAP explanation")
+    triggered_rules: Mapped[list] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]",
+        comment='[{"rule_id": "...", "name": "...", "field": "amount", "operator": "gt", '
+        '"value": "50000", "action": "block"}, ...] — business rules (not the ML model) that matched this transaction.',
+    )
 
     # ------------------------------------------------------------------ #
     # Relationships

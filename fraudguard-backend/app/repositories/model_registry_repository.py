@@ -17,6 +17,12 @@ class ModelRegistryRepository:
         stmt = select(ModelRegistry).where(ModelRegistry.status == ModelStatus.ACTIVE)
         return self.db.execute(stmt).scalar_one_or_none()
 
+    def list_all(self):
+        """Every trained model version, most recent first — powers the Model
+        Registry admin page's version history table."""
+        stmt = select(ModelRegistry).order_by(ModelRegistry.training_date.desc().nullslast())
+        return list(self.db.execute(stmt).scalars().all())
+
     def get_latest_metrics(self, model_registry_id) -> Optional[ModelMetrics]:
         """Most recent evaluation snapshot for a model — confusion matrix included.
         Returns None if train_model.py never recorded one (older model artifacts)."""
