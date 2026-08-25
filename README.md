@@ -1,89 +1,77 @@
 <div align="center">
 
-🛡️ FraudGuard
+# 🛡️ FraudGuard
 
-Real-Time AI-Powered Credit Card Fraud Detection & Monitoring Platform
+### Real-Time AI-Powered Credit Card Fraud Detection & Monitoring Platform
 
-Detect → Explain → Decide → Review → Learn
+**Detect → Explain → Decide → Review → Learn**
 
-FraudGuard is an end-to-end fraud detection platform that combines machine learning, business rules, SHAP explainability, real-time monitoring, analyst review workflows, and analytics into one modern dashboard.
-
-<br/>
-
-
-
-
-
-
-
-
-
-
+FraudGuard is an end-to-end fraud detection platform that combines **machine learning, business rules, SHAP explainability, real-time monitoring, analyst review workflows, and analytics** into one modern dashboard.
 
 <br/>
 
-⭐ Star this repository · 📖 Documentation · 🚀 Deployment
+[![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![XGBoost](https://img.shields.io/badge/XGBoost-ML-189FDD?style=for-the-badge)](https://xgboost.readthedocs.io/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-Cache-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
+[![WebSockets](https://img.shields.io/badge/WebSockets-Realtime-7C3AED?style=for-the-badge)](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API)
+[![SHAP](https://img.shields.io/badge/SHAP-Explainability-FF6F00?style=for-the-badge)](https://shap.readthedocs.io/)
+[![License](https://img.shields.io/badge/License-GPL--3.0-8B5CF6?style=for-the-badge)](LICENSE)
+
+<br/>
+
+**[⭐ Star this repository](https://github.com/RiyaJanday/Fraud-Guard)** · **[📖 Documentation](LOCAL_RUN.md)** · **[🚀 Deployment](DEPLOYMENT.md)**
 
 </div>
 
-🚨 Why FraudGuard?
+---
+
+## 🚨 Why FraudGuard?
 
 Traditional fraud detection often stops at:
 
-"This transaction looks suspicious."
+> **"This transaction looks suspicious."**
 
 FraudGuard goes further.
 
 It answers:
 
-Why was the transaction considered risky?
-
-Which business rule was triggered?
-
-What did the ML model predict?
-
-Should the transaction be approved, flagged, or blocked?
-
-Does a human analyst need to review it?
-
-What happened after the decision?
+- **Why** was the transaction considered risky?
+- **Which business rule** was triggered?
+- **What did the ML model predict?**
+- **Should the transaction be approved, flagged, or blocked?**
+- **Does a human analyst need to review it?**
+- **What happened after the decision?**
 
 The result is an explainable, operational fraud detection workflow rather than a black-box prediction API.
 
-✨ What Makes It Different?
+---
 
-Capability
+## ✨ What Makes It Different?
 
-FraudGuard
+| Capability | FraudGuard |
+|---|:---:|
+| 🤖 ML-based fraud prediction | ✅ |
+| 🧠 SHAP explanations | ✅ |
+| 📏 Business-rule engine | ✅ |
+| 🚫 Rule-based decision override | ✅ |
+| ⚡ Real-time WebSocket monitoring | ✅ |
+| 🔎 Transaction investigation | ✅ |
+| 👩‍💻 Analyst review queue | ✅ |
+| 🔐 JWT authentication & RBAC | ✅ |
+| 📊 Fraud analytics & dashboards | ✅ |
+| 📉 Data drift monitoring | ✅ |
+| 📄 CSV/PDF reports | ✅ |
+| 🧾 Audit trail | ✅ |
+| 🧠 Model registry & version history | ✅ |
 
-🤖 ML-based fraud prediction ✅
+---
 
-🧠 SHAP explanations ✅
+# 🏗️ System Architecture
 
-📏 Business-rule engine ✅
-
-🚫 Rule-based decision override ✅
-
-⚡ Real-time WebSocket monitoring ✅
-
-🔎 Transaction investigation ✅
-
-👩‍💻 Analyst review queue ✅
-
-🔐 JWT authentication & RBAC ✅
-
-📊 Fraud analytics & dashboards ✅
-
-📉 Data drift monitoring ✅
-
-📄 CSV/PDF reports ✅
-
-🧾 Audit trail ✅
-
-🧠 Model registry & version history ✅
-
-🏗️ System Architecture
-
+```mermaid
 flowchart LR
     A[💳 Transaction] --> B[⚙️ Feature Engineering]
     B --> C[🤖 ML Fraud Model]
@@ -107,13 +95,15 @@ flowchart LR
 
     G --> O[📊 Dashboard]
     G --> P[🔔 Notifications]
+```
 
-Decision Philosophy
+### Decision Philosophy
 
-FraudGuard does not blindly trust the ML model.
+FraudGuard does **not** blindly trust the ML model.
 
 For example:
 
+```text
 Transaction Amount = ₹75,000
 
                  ML MODEL
@@ -138,30 +128,30 @@ Transaction Amount = ₹75,000
               🚫 BLOCKED
                     ↓
              REVIEW QUEUE
+```
 
 This allows deterministic business policies to override a low-risk ML prediction when required.
 
-🚀 Core Features
+---
 
-🤖 1. AI Fraud Detection
+# 🚀 Core Features
+
+## 🤖 1. AI Fraud Detection
 
 Transactions are processed through a machine-learning inference pipeline to generate:
 
-Fraud probability
-
-Risk score
-
-Confidence
-
-Final decision
-
-Model version
-
-Inference latency
+- Fraud probability
+- Risk score
+- Confidence
+- Final decision
+- Model version
+- Inference latency
 
 The platform currently supports an XGBoost-based fraud detection workflow and maintains model/version information through the Model Registry.
 
-🔬 2. Explainable AI with SHAP
+---
+
+## 🔬 2. Explainable AI with SHAP
 
 Fraud detection should not be a black box.
 
@@ -169,6 +159,7 @@ FraudGuard generates transaction-level SHAP explanations showing the strongest c
 
 Example:
 
+```text
 Top contributing signals
 
 1. Hour
@@ -176,63 +167,66 @@ Top contributing signals
 3. Amount
 4. V1
 5. V18
+```
 
 Each explanation can include:
 
-Feature name
-
-Human-readable label
-
-Feature value
-
-SHAP impact
-
-Natural-language explanation
+- Feature name
+- Human-readable label
+- Feature value
+- SHAP impact
+- Natural-language explanation
 
 This makes model decisions easier for analysts to investigate.
 
-📏 3. Business Rules Engine
+---
+
+## 📏 3. Business Rules Engine
 
 Machine learning is only one part of fraud prevention.
 
 FraudGuard also evaluates deterministic business rules such as:
 
+```text
 IF amount > 50000
 THEN BLOCK
+```
 
 or:
 
+```text
 IF amount > 20000
 THEN FLAG
+```
 
 Multiple rules can trigger for the same transaction.
 
 The final decision is determined after combining the ML result with the active business rules.
 
-⚡ 4. Real-Time Live Monitoring
+---
 
-Transactions can be streamed to the dashboard using WebSockets.
+## ⚡ 4. Real-Time Live Monitoring
+
+Transactions can be streamed to the dashboard using **WebSockets**.
 
 The Live Monitoring interface provides:
 
-Real-time transaction feed
-
-Merchant
-
-Amount
-
-Risk indicator
-
-Approved/Blocked status
-
-Stream controls
+- Real-time transaction feed
+- Merchant
+- Amount
+- Risk indicator
+- Approved/Blocked status
+- Stream controls
 
 No manual refresh is required for the live stream.
 
-🕵️ 5. Analyst Review Queue
+---
+
+## 🕵️ 5. Analyst Review Queue
 
 Automatically blocked/high-risk transactions can enter an analyst workflow.
 
+```text
 BLOCKED TRANSACTION
         ↓
 PENDING REVIEW
@@ -250,42 +244,35 @@ SHAP + BUSINESS RULES
 └───────────────┘
         ↓
 AUDIT TRAIL
+```
 
 This creates a human-in-the-loop fraud investigation workflow.
 
-📊 6. Fraud Detection Dashboard
+---
+
+## 📊 6. Fraud Detection Dashboard
 
 The dashboard provides operational visibility into the fraud pipeline.
 
-Includes
+### Includes
 
-Total transactions
+- Total transactions
+- Fraud detected
+- Fraud blocked
+- Detection accuracy
+- Average risk score
+- Transaction volume
+- Fraud distribution
+- Risk trend
+- Model performance
+- Live risk gauge
+- Fraud heatmap
+- Recent alerts
+- Notifications
 
-Fraud detected
+---
 
-Fraud blocked
-
-Detection accuracy
-
-Average risk score
-
-Transaction volume
-
-Fraud distribution
-
-Risk trend
-
-Model performance
-
-Live risk gauge
-
-Fraud heatmap
-
-Recent alerts
-
-Notifications
-
-📉 7. Drift Monitoring
+## 📉 7. Drift Monitoring
 
 Fraud patterns change over time.
 
@@ -293,70 +280,66 @@ FraudGuard compares live transaction behavior against a reference distribution t
 
 This helps answer:
 
-"Is the incoming transaction population starting to look different from the data the model learned from?"
+> "Is the incoming transaction population starting to look different from the data the model learned from?"
 
-🧠 8. Model Registry
+---
+
+## 🧠 8. Model Registry
 
 The Model Registry provides visibility into:
 
-Active model
-
-Algorithm
-
-Accuracy
-
-Precision
-
-Recall
-
-F1 score
-
-ROC-AUC
-
-PR-AUC
-
-Training timestamp
-
-Historical model versions
+- Active model
+- Algorithm
+- Accuracy
+- Precision
+- Recall
+- F1 score
+- ROC-AUC
+- PR-AUC
+- Training timestamp
+- Historical model versions
 
 This creates a foundation for reproducible model operations and future retraining.
 
-🔐 9. Authentication & Role-Based Access
+---
+
+## 🔐 9. Authentication & Role-Based Access
 
 FraudGuard includes:
 
-JWT authentication
+- JWT authentication
+- Admin role
+- Analyst role
+- Protected routes
+- Password reset flow
+- Role-based access control
 
-Admin role
+---
 
-Analyst role
-
-Protected routes
-
-Password reset flow
-
-Role-based access control
-
-🧾 10. Audit Trail
+## 🧾 10. Audit Trail
 
 Fraud investigations need accountability.
 
 FraudGuard records important review actions and case resolutions so that decisions can be traced later.
 
-📄 11. Reports
+---
+
+## 📄 11. Reports
 
 Export operational data in:
 
-CSV
-
-PDF
+- CSV
+- PDF
 
 Useful for analysis, reporting and demonstrations.
 
-🖥️ Dashboard Preview
+---
 
-Add your screenshots to a docs/screenshots/ folder and uncomment the images below.
+# 🖥️ Dashboard Preview
 
+> Add your screenshots to a `docs/screenshots/` folder and uncomment the images below.
+
+```text
 docs/
 └── screenshots/
     ├── dashboard.png
@@ -365,115 +348,63 @@ docs/
     ├── review-queue.png
     ├── model-registry.png
     └── business-rules.png
+```
 
-Overview
+### Overview
 
 <!-- ![FraudGuard Dashboard](docs/screenshots/dashboard.png) -->
 
-Live Monitoring
+### Live Monitoring
 
 <!-- ![Live Monitoring](docs/screenshots/live-monitoring.png) -->
 
-Transactions
+### Transactions
 
 <!-- ![Transactions](docs/screenshots/transactions.png) -->
 
-Review Queue
+### Review Queue
 
 <!-- ![Review Queue](docs/screenshots/review-queue.png) -->
 
-Model Registry
+### Model Registry
 
 <!-- ![Model Registry](docs/screenshots/model-registry.png) -->
 
-🧰 Tech Stack
+---
 
-Backend
+# 🧰 Tech Stack
 
-Technology
+## Backend
 
-Purpose
+| Technology | Purpose |
+|---|---|
+| **Python** | Core backend & ML ecosystem |
+| **FastAPI** | REST API |
+| **SQLAlchemy** | ORM / database access |
+| **Alembic** | Database migrations |
+| **PostgreSQL** | Persistent database |
+| **Redis** | Caching / supporting infrastructure |
+| **XGBoost** | Fraud classification |
+| **scikit-learn** | ML preprocessing & evaluation |
+| **SHAP** | Model explainability |
+| **WebSockets** | Real-time updates |
+| **JWT** | Authentication |
 
-Python
+## Frontend
 
-Core backend & ML ecosystem
+| Technology | Purpose |
+|---|---|
+| **React 19** | UI |
+| **Vite** | Development/build tooling |
+| **Tailwind CSS** | Styling |
+| **Chart.js** | Analytics visualizations |
+| **React Hook Form** | Form management |
+| **Zod** | Validation |
+| **Axios** | API communication |
 
-FastAPI
+## Infrastructure
 
-REST API
-
-SQLAlchemy
-
-ORM / database access
-
-Alembic
-
-Database migrations
-
-PostgreSQL
-
-Persistent database
-
-Redis
-
-Caching / supporting infrastructure
-
-XGBoost
-
-Fraud classification
-
-scikit-learn
-
-ML preprocessing & evaluation
-
-SHAP
-
-Model explainability
-
-WebSockets
-
-Real-time updates
-
-JWT
-
-Authentication
-
-Frontend
-
-Technology
-
-Purpose
-
-React 19
-
-UI
-
-Vite
-
-Development/build tooling
-
-Tailwind CSS
-
-Styling
-
-Chart.js
-
-Analytics visualizations
-
-React Hook Form
-
-Form management
-
-Zod
-
-Validation
-
-Axios
-
-API communication
-
-Infrastructure
-
+```text
 Docker
 ├── PostgreSQL
 ├── Redis
@@ -484,9 +415,13 @@ React/Vite frontend
      REST API
         +
    WebSockets
+```
 
-📁 Project Structure
+---
 
+# 📁 Project Structure
+
+```text
 Fraud-Guard/
 │
 ├── fraudguard-backend/
@@ -529,70 +464,87 @@ Fraud-Guard/
 ├── DEPLOYMENT.md
 ├── LICENSE
 └── README.md
+```
 
-⚡ Quick Start
+---
 
-Prerequisites
+# ⚡ Quick Start
+
+## Prerequisites
 
 Install:
 
-Git
+- Git
+- Docker Desktop
+- Node.js
+- Python 3.11
 
-Docker Desktop
+### 1️⃣ Clone
 
-Node.js
-
-Python 3.11
-
-1️⃣ Clone
-
+```bash
 git clone https://github.com/RiyaJanday/Fraud-Guard.git
 cd Fraud-Guard
+```
 
-2️⃣ Start backend infrastructure
+### 2️⃣ Start backend infrastructure
 
+```bash
 docker compose up --build
+```
 
 Wait until the backend reports:
 
+```text
 Application startup complete
+```
 
 Then open:
 
-http://127.0.0.1:8000/docs
+**http://127.0.0.1:8000/docs**
 
-3️⃣ Start frontend
+### 3️⃣ Start frontend
 
 Open another terminal:
 
+```bash
 cd fraudguard-frontend
 npm install
 npm run dev
+```
 
 Open the Vite URL shown in the terminal, usually:
 
+```text
 http://localhost:5173
+```
 
-4️⃣ Create an account
+### 4️⃣ Create an account
 
 Register through the authentication flow.
 
 The first registered account can be used as the administrator account according to the local setup flow.
 
-🧪 Test the Fraud Pipeline
+---
+
+# 🧪 Test the Fraud Pipeline
 
 FraudGuard can be tested directly from Swagger.
 
 Open:
 
+```text
 http://127.0.0.1:8000/docs
+```
 
 Find:
 
+```text
 POST /api/v1/predict
+```
 
 Example high-value transaction:
 
+```json
 {
   "time_feature": 0,
   "amount": 75000,
@@ -634,9 +586,11 @@ Example high-value transaction:
     "V28": -0.04
   }
 }
+```
 
-Expected decision flow
+### Expected decision flow
 
+```text
 ₹75,000
    ↓
 ML model
@@ -650,13 +604,17 @@ amount > 50,000
 🚫 BLOCKED
    ↓
 Review Queue
+```
 
 This demonstrates one of FraudGuard's most important design principles:
 
-The ML model provides intelligence; business rules provide deterministic control.
+> **The ML model provides intelligence; business rules provide deterministic control.**
 
-🔄 End-to-End Workflow
+---
 
+# 🔄 End-to-End Workflow
+
+```text
                   ┌───────────────┐
                   │   Transaction │
                   └───────┬───────┘
@@ -699,118 +657,111 @@ The ML model provides intelligence; business rules provide deterministic control
               ↘ Analytics → Dashboard
               ↘ SHAP → Explainability
               ↘ Events → Notifications
+```
 
-📈 Model Evaluation
+---
+
+# 📈 Model Evaluation
 
 The Model Registry tracks standard classification metrics:
 
+```text
 Accuracy
 Precision
 Recall
 F1 Score
 ROC-AUC
 PR-AUC
+```
 
-Important: Accuracy alone is not sufficient for fraud detection because fraud datasets are typically imbalanced. Precision, recall, F1, ROC-AUC and PR-AUC are therefore tracked together.
+> **Important:** Accuracy alone is not sufficient for fraud detection because fraud datasets are typically imbalanced. Precision, recall, F1, ROC-AUC and PR-AUC are therefore tracked together.
 
-🔐 Security
+---
+
+# 🔐 Security
 
 FraudGuard includes application-level security features such as:
 
-JWT-based authentication
+- JWT-based authentication
+- Role-based authorization
+- Protected API routes
+- Password reset flow
+- Audit logging
+- Input validation
+- Rate limiting
+- Environment-based configuration
 
-Role-based authorization
-
-Protected API routes
-
-Password reset flow
-
-Audit logging
-
-Input validation
-
-Rate limiting
-
-Environment-based configuration
-
-⚠️ Production Note
+### ⚠️ Production Note
 
 Do not commit:
 
+```text
 .env
 database passwords
 JWT secrets
 API keys
 private credentials
+```
 
 Use environment variables or a secret manager for production deployments.
 
-☁️ Deployment
+---
+
+# ☁️ Deployment
 
 The project is designed around:
 
+```text
 Frontend  → Vercel
 Backend   → Render
 Database  → PostgreSQL
 Cache     → Redis
+```
 
-See DEPLOYMENT.md for the deployment workflow.
+See [`DEPLOYMENT.md`](DEPLOYMENT.md) for the deployment workflow.
 
-🗺️ Roadmap
+---
 
-ML fraud prediction
+# 🗺️ Roadmap
 
-SHAP explainability
+- [x] ML fraud prediction
+- [x] SHAP explainability
+- [x] Business rules
+- [x] Transaction monitoring
+- [x] Real-time WebSocket feed
+- [x] Analyst review queue
+- [x] Dashboard analytics
+- [x] Model registry
+- [x] Drift monitoring
+- [x] Audit trail
+- [x] CSV/PDF reports
+- [ ] Automated model retraining pipeline
+- [ ] Advanced rule simulation
+- [ ] Champion/challenger model evaluation
+- [ ] Expanded production observability
+- [ ] Cloud deployment hardening
 
-Business rules
+---
 
-Transaction monitoring
-
-Real-time WebSocket feed
-
-Analyst review queue
-
-Dashboard analytics
-
-Model registry
-
-Drift monitoring
-
-Audit trail
-
-CSV/PDF reports
-
-Automated model retraining pipeline
-
-Advanced rule simulation
-
-Champion/challenger model evaluation
-
-Expanded production observability
-
-Cloud deployment hardening
-
-🎯 Project Goals
+# 🎯 Project Goals
 
 FraudGuard was designed around four principles:
 
-1. Accuracy
-
+### 1. **Accuracy**
 Use machine learning to identify suspicious transaction patterns.
 
-2. Explainability
-
+### 2. **Explainability**
 Show analysts why a transaction received its risk score.
 
-3. Control
-
+### 3. **Control**
 Allow deterministic business policies to override model decisions.
 
-4. Operations
-
+### 4. **Operations**
 Turn predictions into a complete monitoring and human-review workflow.
 
-💡 Example Use Case
+---
+
+# 💡 Example Use Case
 
 Imagine a customer makes a ₹75,000 first-time transaction.
 
@@ -818,10 +769,11 @@ The ML model may consider the transaction low risk.
 
 But the organization's policy says:
 
-Transactions above ₹50,000 from a first-time customer must be blocked for review.
+> Transactions above ₹50,000 from a first-time customer must be blocked for review.
 
 FraudGuard handles this as:
 
+```text
 ML says:
 "Low risk"
 
@@ -830,25 +782,25 @@ Business Rules say:
 
 FraudGuard says:
 "BLOCK"
+```
 
 The analyst can then inspect:
 
-transaction details
-
-risk score
-
-SHAP explanation
-
-triggered business rules
-
-decision history
+- transaction details
+- risk score
+- SHAP explanation
+- triggered business rules
+- decision history
 
 and make the final human decision.
 
-🏆 Why This Is More Than a Machine Learning Project
+---
+
+# 🏆 Why This Is More Than a Machine Learning Project
 
 FraudGuard demonstrates the complete lifecycle of an applied ML system:
 
+```text
                 DATA
                  ↓
            PREPROCESSING
@@ -868,37 +820,38 @@ FraudGuard demonstrates the complete lifecycle of an applied ML system:
         MONITORING + DRIFT
                  ↓
           FUTURE RETRAINING
+```
 
-It combines Machine Learning + Backend Engineering + Frontend Engineering + Databases + Real-Time Systems + Explainable AI + MLOps concepts in one application.
+It combines **Machine Learning + Backend Engineering + Frontend Engineering + Databases + Real-Time Systems + Explainable AI + MLOps concepts** in one application.
 
-👩‍💻 Author
+---
 
-Riya Janday
+# 👩‍💻 Author
+
+### Riya Janday
 
 B.Tech Computer Science Engineering — AI
 
 Interested in:
 
-🤖 Artificial Intelligence
+- 🤖 Artificial Intelligence
+- 🧠 Machine Learning
+- 💻 Software Engineering
+- 📊 Data & Analytics
+- 🚀 Building production-oriented AI systems
 
-🧠 Machine Learning
-
-💻 Software Engineering
-
-📊 Data & Analytics
-
-🚀 Building production-oriented AI systems
+---
 
 <div align="center">
 
-🛡️ FraudGuard
+### 🛡️ FraudGuard
 
-Don't just detect fraud. Understand it. Act on it. Learn from it.
+**Don't just detect fraud. Understand it. Act on it. Learn from it.**
 
 <br/>
 
-⭐ If you find this project interesting, consider starring the repository.
+⭐ **If you find this project interesting, consider starring the repository.**
 
-GitHub Repository
+**[GitHub Repository](https://github.com/RiyaJanday/Fraud-Guard)**
 
 </div>
