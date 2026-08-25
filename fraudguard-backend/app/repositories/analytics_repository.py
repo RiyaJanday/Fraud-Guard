@@ -11,12 +11,19 @@ should still render a properly-shaped chart, not a chart with 2 points.
 
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from app.models.fraud_prediction import Decision, FraudPrediction
 from app.models.transaction import Transaction
+
+# Every chart in this app labels/formats time in en-IN (see lib/transform.js
+# on the frontend), so bucket boundaries here need to agree with that same
+# real-world clock rather than whatever timezone Postgres's session or the
+# Python process defaults to.
+IST = ZoneInfo("Asia/Kolkata")
 
 
 class AnalyticsRepository:
@@ -60,28 +67,38 @@ class AnalyticsRepository:
         # loop counting forward from (now - 24h) only reaches (now - 1h),
         # never including the current hour's own bucket, so anything
         # submitted "just now" silently falls outside every labeled bucket.
-        now = datetime.now(timezone.utc)
-        now_hour = now.replace(minute=0, second=0, microsecond=0)
-        start_hour = now_hour - timedelta(hours=hours - 1)
+        #
+        # Bucketed and labeled in IST, not UTC — date_trunc("hour", created_at)
+        # on the raw timestamptz column truncates against whatever timezone
+        # the DB session defaults to, and `now = datetime.now(timezone.utc)`
+        # labels every bucket in UTC clock hours. Both silently disagree with
+        # the user's actual local time ("Last 24 Hours" showing the wrong
+        # hours entirely).
+        now_ist = datetime.now(timezone.utc).astimezone(IST)
+        now_hour_ist = now_ist.replace(minute=0, second=0, microsecond=0)
+        start_hour_ist = now_hour_ist - timedelta(hours=hours - 1)
 
+        local_created_at = func.timezone("Asia/Kolkata", Transaction.created_at)
         stmt = (
             select(
-                func.date_trunc("hour", Transaction.created_at).label("bucket"),
+                func.date_trunc("hour", local_created_at).label("bucket"),
                 func.count(case((FraudPrediction.is_fraud.is_(False), 1))).label("legit"),
                 func.count(case((FraudPrediction.is_fraud.is_(True), 1))).label("fraud"),
             )
             .select_from(Transaction)
             .outerjoin(Transaction.prediction)
-            .where(Transaction.created_at >= start_hour)
+            .where(Transaction.created_at >= start_hour_ist)
             .group_by("bucket")
         )
-        rows = {row.bucket: row for row in self.db.execute(stmt).all()}
+        # func.timezone() returns a naive local-wall-clock timestamp (tzinfo
+        # stripped), so key lookups below must use naive IST datetimes too.
+        rows = {row.bucket.replace(tzinfo=None): row for row in self.db.execute(stmt).all()}
 
         labels, legit, fraud = [], [], []
         for i in range(hours):
-            bucket_time = start_hour + timedelta(hours=i)
+            bucket_time = start_hour_ist + timedelta(hours=i)
             labels.append(bucket_time.strftime("%H:00"))
-            row = rows.get(bucket_time)
+            row = rows.get(bucket_time.replace(tzinfo=None))
             legit.append(row.legit if row else 0)
             fraud.append(row.fraud if row else 0)
         return {"labels": labels, "legit": legit, "fraud": fraud}
@@ -100,27 +117,30 @@ class AnalyticsRepository:
         }
 
     def risk_trend_by_day(self, days: int = 14) -> dict[str, list]:
-        # Same off-by-one fix as volume_by_hour: bucket backward from today,
-        # not forward from (now - days), or today's own bucket never appears.
-        now = datetime.now(timezone.utc)
-        now_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        start_day = now_day - timedelta(days=days - 1)
+        # Same off-by-one fix as volume_by_hour, plus the same UTC-vs-IST fix:
+        # a transaction at 1am IST is still 8:30pm the PREVIOUS day in UTC, so
+        # date_trunc('day', created_at) without a timezone conversion could
+        # silently drop it into yesterday's bucket.
+        now_ist = datetime.now(timezone.utc).astimezone(IST)
+        now_day_ist = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+        start_day_ist = now_day_ist - timedelta(days=days - 1)
 
+        local_created_at = func.timezone("Asia/Kolkata", FraudPrediction.created_at)
         stmt = (
             select(
-                func.date_trunc("day", FraudPrediction.created_at).label("bucket"),
+                func.date_trunc("day", local_created_at).label("bucket"),
                 func.avg(FraudPrediction.risk_score).label("avg_risk"),
             )
-            .where(FraudPrediction.created_at >= start_day)
+            .where(FraudPrediction.created_at >= start_day_ist)
             .group_by("bucket")
         )
-        rows = {row.bucket: row.avg_risk for row in self.db.execute(stmt).all()}
+        rows = {row.bucket.replace(tzinfo=None): row.avg_risk for row in self.db.execute(stmt).all()}
 
         labels, values = [], []
         for i in range(days):
-            day = start_day + timedelta(days=i)
+            day = start_day_ist + timedelta(days=i)
             labels.append(day.strftime("%b %d"))
-            avg = rows.get(day)
+            avg = rows.get(day.replace(tzinfo=None))
             values.append(round(float(avg), 2) if avg is not None else 0.0)
         return {"labels": labels, "values": values}
 

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Receipt, ShieldAlert, ShieldCheck, Target, Gauge, Download } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Receipt, ShieldAlert, ShieldCheck, Target, Gauge, Download, Radio } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageHeader from '../components/ui/PageHeader'
 import StatCard from '../components/ui/StatCard'
@@ -16,7 +16,7 @@ import TransactionDrawer from '../components/transactions/TransactionDrawer'
 import AlertsPanel from '../components/dashboard/AlertsPanel'
 import NotificationsPanel from '../components/dashboard/NotificationsPanel'
 import { fraudApi } from '../lib/api'
-import { downloadBlobResponse } from '../lib/utils'
+import { cn, downloadBlobResponse } from '../lib/utils'
 import { mapDashboardStats, mapDashboardCharts, mapAlerts, mapTransactionListItem, mapTransactionDetail } from '../lib/transform'
 import { useNotifications } from '../context/NotificationsContext'
 
@@ -30,7 +30,7 @@ const EMPTY_STATS = {
 }
 
 export default function Dashboard() {
-  const { notifications, unreadCount, markRead, markAllRead } = useNotifications()
+  const { notifications, unreadCount, markRead, markAllRead, connected, subscribe } = useNotifications()
   const [selectedId, setSelectedId] = useState(null)
   const [selected, setSelected] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -39,6 +39,7 @@ export default function Dashboard() {
   const [charts, setCharts] = useState(null)
   const [alerts, setAlerts] = useState([])
   const [recent, setRecent] = useState([])
+  const refreshTimer = useRef(null)
 
   async function handleExportReport() {
     setExporting(true)
@@ -56,8 +57,8 @@ export default function Dashboard() {
   useEffect(() => {
     let cancelled = false
 
-    async function load() {
-      setLoading(true)
+    async function load({ silent = false } = {}) {
+      if (!silent) setLoading(true)
       try {
         const [statsRes, chartsRes, alertsRes, txnRes] = await Promise.all([
           fraudApi.getDashboardStats(),
@@ -71,15 +72,31 @@ export default function Dashboard() {
         setAlerts(mapAlerts(alertsRes.data))
         setRecent(txnRes.data.items.map(mapTransactionListItem))
       } catch (err) {
-        if (!cancelled) toast.error('Could not load dashboard data from the backend')
+        if (!cancelled && !silent) toast.error('Could not load dashboard data from the backend')
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled && !silent) setLoading(false)
       }
     }
 
     load()
-    return () => { cancelled = true }
-  }, [])
+
+    // Live updates ride the app-wide WebSocket already open in
+    // NotificationsContext — every scored transaction refreshes stats, charts,
+    // alerts, and the recent-transactions table together, debounced so a
+    // burst of activity triggers one refetch instead of one per event.
+    const unsubscribe = subscribe((payload) => {
+      if (payload.event === 'transaction_scored' && payload.transaction) {
+        clearTimeout(refreshTimer.current)
+        refreshTimer.current = setTimeout(() => load({ silent: true }), 1500)
+      }
+    })
+
+    return () => {
+      cancelled = true
+      unsubscribe()
+      clearTimeout(refreshTimer.current)
+    }
+  }, [subscribe])
 
   useEffect(() => {
     if (!selectedId) {
@@ -110,9 +127,19 @@ export default function Dashboard() {
         title="Fraud Detection Dashboard"
         subtitle="Real-time visibility into transaction risk across your entire payments network."
         actions={
-          <button onClick={handleExportReport} disabled={exporting} className="btn-ghost text-sm disabled:opacity-50">
-            <Download size={15} /> {exporting ? 'Generating…' : 'Export Report'}
-          </button>
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-2 text-xs text-white/40">
+              <span className="relative flex h-2 w-2">
+                {connected && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />}
+                <span className={cn('relative inline-flex h-2 w-2 rounded-full', connected ? 'bg-success' : 'bg-white/30')} />
+              </span>
+              <Radio size={13} className={connected ? 'text-success' : 'text-white/30'} />
+              {connected ? 'Live' : 'Reconnecting\u2026'}
+            </span>
+            <button onClick={handleExportReport} disabled={exporting} className="btn-ghost text-sm disabled:opacity-50">
+              <Download size={15} /> {exporting ? 'Generating\u2026' : 'Export Report'}
+            </button>
+          </div>
         }
       />
 

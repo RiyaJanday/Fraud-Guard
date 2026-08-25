@@ -25,6 +25,18 @@ export function NotificationsProvider({ children }) {
   const wsRef = useRef(null)
   const reconnectTimeoutRef = useRef(null)
   const reconnectAttemptRef = useRef(0)
+  // Other pages (Fraud Analytics, Dashboard) need live updates too, but every
+  // event rides this same one socket rather than each page opening its own
+  // duplicate connection to the same endpoint. subscribe() hands a page every
+  // raw parsed message so it can filter for whatever event type it cares
+  // about (e.g. "transaction_scored") without this context needing to know
+  // about every consumer in advance.
+  const listenersRef = useRef(new Set())
+
+  const subscribe = useCallback((callback) => {
+    listenersRef.current.add(callback)
+    return () => listenersRef.current.delete(callback)
+  }, [])
 
   const refresh = useCallback(async () => {
     try {
@@ -91,6 +103,7 @@ export function NotificationsProvider({ children }) {
             setUnreadCount((c) => c + 1)
             toast(n.title, { icon: typeMeta(n.type).toastIcon })
           }
+          listenersRef.current.forEach((cb) => cb(payload))
         } catch {
           // Ignore malformed frames rather than crash the socket handler.
         }
@@ -118,7 +131,7 @@ export function NotificationsProvider({ children }) {
   }, [user, refresh])
 
   return (
-    <NotificationsContext.Provider value={{ notifications, unreadCount, connected, markRead, markAllRead, refresh }}>
+    <NotificationsContext.Provider value={{ notifications, unreadCount, connected, markRead, markAllRead, refresh, subscribe }}>
       {children}
     </NotificationsContext.Provider>
   )

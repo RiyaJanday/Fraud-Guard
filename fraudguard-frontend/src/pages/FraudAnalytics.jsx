@@ -7,14 +7,15 @@ import VolumeLineChart from '../components/charts/VolumeLineChart'
 import FraudDoughnutChart from '../components/charts/FraudDoughnutChart'
 import RiskAreaChart from '../components/charts/RiskAreaChart'
 import FraudHeatmap from '../components/charts/FraudHeatmap'
-import { fraudApi, getAccessToken, getNotificationsWebSocketUrl } from '../lib/api'
+import { fraudApi } from '../lib/api'
 import { mapAnalytics } from '../lib/transform'
 import { cn } from '../lib/utils'
+import { useNotifications } from '../context/NotificationsContext'
 
 export default function FraudAnalytics() {
+  const { connected, subscribe } = useNotifications()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState(null)
-  const [connected, setConnected] = useState(false)
   const refreshTimer = useRef(null)
 
   function loadAnalytics({ silent = false } = {}) {
@@ -38,53 +39,22 @@ export default function FraudAnalytics() {
     loadAnalytics()
   }, [])
 
-  // Live updates: every scored transaction is broadcast over the same
-  // WebSocket channel Live Monitoring listens on. A fraud-relevant event
-  // (is_fraud, or anything the model/rules didn't outright approve) means
-  // the heatmap/volume/distribution charts are now stale, so we debounce a
-  // real refetch rather than trying to hand-patch every chart's aggregate
-  // math on the client for one new data point.
+  // Live updates ride the app-wide WebSocket already open in
+  // NotificationsContext, rather than this page opening its own second
+  // connection to the same endpoint. Debounced so a burst of several
+  // transactions in quick succession triggers one refetch, not one per event.
   useEffect(() => {
-    let cancelled = false
-    let reconnectTimer
-    let ws
-
-    function scheduleRefresh() {
-      clearTimeout(refreshTimer.current)
-      refreshTimer.current = setTimeout(() => loadAnalytics({ silent: true }), 1500)
-    }
-
-    function connect() {
-      const token = getAccessToken()
-      if (!token || cancelled) return
-      ws = new WebSocket(getNotificationsWebSocketUrl(token))
-
-      ws.onopen = () => setConnected(true)
-      ws.onclose = () => {
-        setConnected(false)
-        if (!cancelled) reconnectTimer = setTimeout(connect, 3000)
+    const unsubscribe = subscribe((payload) => {
+      if (payload.event === 'transaction_scored' && payload.transaction) {
+        clearTimeout(refreshTimer.current)
+        refreshTimer.current = setTimeout(() => loadAnalytics({ silent: true }), 1500)
       }
-      ws.onerror = () => ws.close()
-      ws.onmessage = (event) => {
-        try {
-          const payload = JSON.parse(event.data)
-          if (payload.event === 'transaction_scored' && payload.transaction) {
-            scheduleRefresh()
-          }
-        } catch {
-          // ignore malformed frames
-        }
-      }
-    }
-
-    connect()
+    })
     return () => {
-      cancelled = true
-      clearTimeout(reconnectTimer)
+      unsubscribe()
       clearTimeout(refreshTimer.current)
-      ws?.close()
     }
-  }, [])
+  }, [subscribe])
 
   if (loading || !data) {
     return (
