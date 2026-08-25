@@ -56,57 +56,31 @@ Capability
 
 FraudGuard
 
-🤖 ML-based fraud prediction
+🤖 ML-based fraud prediction ✅
 
-✅
+🧠 SHAP explanations ✅
 
-🧠 SHAP explanations
+📏 Business-rule engine ✅
 
-✅
+🚫 Rule-based decision override ✅
 
-📏 Business-rule engine
+⚡ Real-time WebSocket monitoring ✅
 
-✅
+🔎 Transaction investigation ✅
 
-🚫 Rule-based decision override
+👩‍💻 Analyst review queue ✅
 
-✅
+🔐 JWT authentication & RBAC ✅
 
-⚡ Real-time WebSocket monitoring
+📊 Fraud analytics & dashboards ✅
 
-✅
+📉 Data drift monitoring ✅
 
-🔎 Transaction investigation
+📄 CSV/PDF reports ✅
 
-✅
+🧾 Audit trail ✅
 
-👩‍💻 Analyst review queue
-
-✅
-
-🔐 JWT authentication & RBAC
-
-✅
-
-📊 Fraud analytics & dashboards
-
-✅
-
-📉 Data drift monitoring
-
-✅
-
-📄 CSV/PDF reports
-
-✅
-
-🧾 Audit trail
-
-✅
-
-🧠 Model registry & version history
-
-✅
+🧠 Model registry & version history ✅
 
 🏗️ System Architecture
 
