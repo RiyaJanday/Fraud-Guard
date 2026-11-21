@@ -783,7 +783,7 @@ Machine Learning + Backend Engineering + Frontend Engineering + Real-Time System
 
 # 👩‍💻 Author
 
-### Raghvendra Rai
+### Riya Janday
 
 B.Tech Computer Science Engineering — AI
 
