@@ -96,6 +96,18 @@ class Settings(BaseSettings):
     # The dataset lives in the project ROOT (one level above fraudguard-backend/),
     # per the project layout: C:\Drishti\FraudGuard\creditcard.csv
     DATASET_PATH: Path = BASE_DIR.parent / "creditcard.csv"
+
+    # Optional: a direct-download URL (e.g. a GitHub Release asset) for
+    # creditcard.csv. Used ONLY as a one-time fallback when DATASET_PATH
+    # doesn't exist on disk -- this is how a deployment like Render, which
+    # has no access to the local filesystem creditcard.csv normally ships
+    # from, can still fetch the real dataset instead of failing outright.
+    # Never used to generate/substitute synthetic data; if this download
+    # itself fails, load_dataset() still raises the same
+    # DatasetNotFoundException as before. Leave unset locally -- the local
+    # Docker volume mount already provides the file directly, so no
+    # download is ever triggered there.
+    DATASET_DOWNLOAD_URL: str | None = None
     MODEL_DIR: Path = BASE_DIR / "app" / "ml_engine" / "models"
     MODEL_FILE: str = "model.joblib"
     SCALER_FILE: str = "scaler.joblib"
